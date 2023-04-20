@@ -144,6 +144,14 @@ std::optional<std::string> OglerVst::recompile_shaders() {
         std::move(std::get<std::string>(video_prog)));
   } else {
     video.prog = std::move(std::get<gl::Program>(video_prog));
+
+    video.iResolution = video.prog->getUniform<gl::vec2>("iResolution");
+    video.iTime = video.prog->getUniform<float>("iTime");
+    video.iSampleRate = video.prog->getUniform<float>("iSampleRate");
+    video.iChannelResolution =
+        video.prog->getUniform<gl::vec2>("iChannelResolution");
+    video.iChannel = video.prog->getUniform<int>("iChannel");
+    video.oChannel = video.prog->getUniform<int>("oChannel");
   }
   glfwMakeContextCurrent(nullptr);
 
@@ -192,28 +200,29 @@ OglerVst::video_process_frame(std::span<const double> parms,
   }
 
   video.prog->use();
-  if (auto resolution = video.prog->getUniform<gl::vec2>("iResolution")) {
-    *resolution = gl::vec2{out_w, out_h};
+  if (video.iResolution) {
+    *video.iResolution = gl::vec2{out_w, out_h};
   }
-  if (auto time = video.prog->getUniform<float>("iTime")) {
-    *time = project_time;
+  if (video.iTime) {
+    *video.iTime = project_time;
   }
-  if (auto srate = video.prog->getUniform<float>("iSampleRate")) {
-    *srate = host_get_sample_rate();
+  if (video.iSampleRate) {
+    *video.iSampleRate = host_get_sample_rate();
   }
   if (video.input_texture) {
-    if (auto cres = video.prog->getUniform<gl::vec2>("iChannelResolution")) {
-      *cres = gl::vec2{float(video.input_texture->get_width(0)),
-                       float(video.input_texture->get_height(0))};
+    if (video.iChannelResolution) {
+      *video.iChannelResolution =
+          gl::vec2{float(video.input_texture->get_width(0)),
+                   float(video.input_texture->get_height(0))};
     }
-    if (auto ichannel = video.prog->getUniform<int>("iChannel")) {
-      *ichannel = 0;
+    if (video.iChannel) {
+      *video.iChannel = 0;
     }
     video.input_texture->bindTextureUnit(0);
   }
 
-  if (auto ochannel = video.prog->getUniform<int>("oChannel")) {
-    *ochannel = 1;
+  if (video.oChannel) {
+    *video.oChannel = 1;
   }
 
   if (!video.output_texture) {

@@ -96,6 +96,13 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
     std::optional<gl::Program> prog;
     std::optional<gl::Texture2D> input_texture, output_texture;
     std::unique_ptr<IVideoFrame> output_frame, input_frame;
+
+    std::optional<gl::Uniform<gl::vec2>> iResolution;
+    std::optional<gl::Uniform<float>> iTime;
+    std::optional<gl::Uniform<float>> iSampleRate;
+    std::optional<gl::Uniform<gl::vec2>> iChannelResolution;
+    std::optional<gl::Uniform<int>> iChannel;
+    std::optional<gl::Uniform<int>> oChannel;
   } video;
 
   struct Editor;
