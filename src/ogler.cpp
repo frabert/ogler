@@ -181,25 +181,21 @@ OglerVst::video_process_frame(std::span<const double> parms,
     video.output_frame = std::unique_ptr<IVideoFrame>(
         new_video_frame(out_w, out_h, vst::FrameFormat::RGBA));
   }
-  if (get_video_num_inputs() > 0 && !video.input_frame) {
-    video.input_frame = std::unique_ptr<IVideoFrame>(
-        get_video_input(0, vst::FrameFormat::RGBA));
+  if (get_video_num_inputs() > 0) {
+    auto input_frame = get_video_input(0, vst::FrameFormat::RGBA);
     if (!video.input_texture ||
-        video.input_texture->get_width(0) != video.input_frame->get_w() ||
-        video.input_texture->get_height(0) != video.input_frame->get_h()) {
-      video.input_texture = gl::Texture2D::create(gl::InternalFormat::RGBA8,
-                                                  video.input_frame->get_w(),
-                                                  video.input_frame->get_h());
+        video.input_texture->get_width(0) != input_frame->get_w() ||
+        video.input_texture->get_height(0) != input_frame->get_h()) {
+      video.input_texture =
+          gl::Texture2D::create(gl::InternalFormat::RGBA8, input_frame->get_w(),
+                                input_frame->get_h());
     }
 
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, AlignTo4(video.input_frame->get_w()));
-    video.input_texture->upload(0, 0, 0, video.input_frame->get_w(),
-                                video.input_frame->get_h(),
-                                gl::PixelFormat::BGRA, gl::PixelType::UByte,
-                                video.input_frame->get_bits());
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, AlignTo4(input_frame->get_w()));
+    video.input_texture->upload(0, 0, 0, input_frame->get_w(),
+                                input_frame->get_h(), gl::PixelFormat::BGRA,
+                                gl::PixelType::UByte, input_frame->get_bits());
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-  } else {
-    video.input_frame = nullptr;
   }
 
   video.prog->use();

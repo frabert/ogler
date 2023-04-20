@@ -95,7 +95,7 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
     std::unique_ptr<GLFWwindow> window;
     std::optional<gl::Program> prog;
     std::optional<gl::Texture2D> input_texture, output_texture;
-    std::unique_ptr<IVideoFrame> output_frame, input_frame;
+    std::unique_ptr<IVideoFrame> output_frame;
 
     std::optional<gl::Uniform<gl::vec2>> iResolution;
     std::optional<gl::Uniform<float>> iTime;
