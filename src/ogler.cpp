@@ -61,7 +61,9 @@ uniform float iTime;
 uniform float iSampleRate;
 uniform vec2 iChannelResolution;
 uniform sampler2D iChannel;
-uniform writeonly image2D oChannel;)",
+uniform writeonly image2D oChannel;
+uniform float iFrameRate;
+uniform float iWet;)",
                                                               source,
                                                               R"(void main() {
     vec4 fragColor;
@@ -152,6 +154,8 @@ std::optional<std::string> OglerVst::recompile_shaders() {
         video.prog->getUniform<gl::vec2>("iChannelResolution");
     video.iChannel = video.prog->getUniform<int>("iChannel");
     video.oChannel = video.prog->getUniform<int>("oChannel");
+    video.iFrameRate = video.prog->getUniform<float>("iFrameRate");
+    video.iWet = video.prog->getUniform<float>("iWet");
   }
   glfwMakeContextCurrent(nullptr);
 
@@ -223,6 +227,14 @@ OglerVst::video_process_frame(std::span<const double> parms,
 
   if (video.oChannel) {
     *video.oChannel = 1;
+  }
+
+  if (video.iFrameRate) {
+    *video.iFrameRate = framerate;
+  }
+
+  if (video.iWet) {
+    *video.iWet = parms[0];
   }
 
   if (!video.output_texture) {
