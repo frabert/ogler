@@ -61,7 +61,11 @@ public:
   }
 };
 
+#ifdef NDEBUG
+#define DBG ReaperStream()
+#else
 #define DBG DebugStream()
+#endif
 
 namespace version {
 constexpr int major = OGLER_VER_MAJOR;
