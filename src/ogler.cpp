@@ -82,16 +82,16 @@ uniform writeonly image2D oChannel;)",
 }
 
 OglerVst::OglerVst(vst::HostCallback *hostcb)
-    : vst::ReaperVstPlugin<OglerVst>(hostcb),
-      window_for_video(
-          (glfwInit(), glfwSetErrorCallback(glfw_error_callback),
-           glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true),
-           glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4),
-           glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6),
-           glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE),
-           glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE),
-           glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE),
-           glfwCreateWindow(100, 100, "", nullptr, nullptr))) {
+    : vst::ReaperVstPlugin<OglerVst>(hostcb) {
+  glfwInit(), glfwSetErrorCallback(glfw_error_callback);
+  glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+  video.window = std::unique_ptr<GLFWwindow>(
+      glfwCreateWindow(100, 100, "", nullptr, nullptr));
   if (auto err = recompile_shaders()) {
     DBG << *err << '\n';
   }
@@ -100,7 +100,7 @@ OglerVst::OglerVst(vst::HostCallback *hostcb)
 OglerVst::~OglerVst() {
   // Need to make sure we bring the context back to the right thread before
   // destroying all of the OpenGL objects
-  glfwMakeContextCurrent(window_for_video.get());
+  glfwMakeContextCurrent(video.window.get());
 }
 
 std::string_view OglerVst::get_effect_name() noexcept { return "Ogler"; }
@@ -135,7 +135,7 @@ void OglerVst::load_bank_data(std::istream &s) noexcept { load_preset_data(s); }
 
 std::optional<std::string> OglerVst::recompile_shaders() {
   std::unique_lock<std::mutex> lock(video_ctx_mtx);
-  glfwMakeContextCurrent(window_for_video.get());
+  glfwMakeContextCurrent(video.window.get());
 
   auto video_prog = CreateProgram(data.video_shader);
   std::optional<std::string> res{};
@@ -143,7 +143,7 @@ std::optional<std::string> OglerVst::recompile_shaders() {
     res = std::make_optional<std::string>(
         std::move(std::get<std::string>(video_prog)));
   } else {
-    prog = std::move(std::get<gl::Program>(video_prog));
+    video.prog = std::move(std::get<gl::Program>(video_prog));
   }
   glfwMakeContextCurrent(nullptr);
 
@@ -155,84 +155,89 @@ OglerVst::video_process_frame(std::span<const double> parms,
                               double project_time, double framerate,
                               vst::FrameFormat force_format) noexcept {
   std::unique_lock<std::mutex> lock(video_ctx_mtx);
-  glfwMakeContextCurrent(window_for_video.get());
+  glfwMakeContextCurrent(video.window.get());
   glEnable(GL_DEBUG_OUTPUT);
   glDebugMessageCallback(DebugCallback, nullptr);
-  if (!prog) {
+  if (!video.prog) {
     return nullptr;
   }
   constexpr int out_w = 1024;
   constexpr int out_h = 768;
-  if (!output_frame) {
-    output_frame = std::unique_ptr<IVideoFrame>(
+  if (!video.output_frame) {
+    video.output_frame = std::unique_ptr<IVideoFrame>(
         new_video_frame(out_w, out_h, vst::FrameFormat::RGBA));
   }
-  if (get_video_num_inputs() > 0 && !input_frame) {
-    input_frame = std::unique_ptr<IVideoFrame>(
+  if (get_video_num_inputs() > 0 && !video.input_frame) {
+    video.input_frame = std::unique_ptr<IVideoFrame>(
         get_video_input(0, vst::FrameFormat::RGBA));
-    if (!inputTexture || inputTexture->get_width(0) != input_frame->get_w() ||
-        inputTexture->get_height(0) != input_frame->get_h()) {
-      inputTexture =
-          gl::Texture2D::create(gl::InternalFormat::RGBA8, input_frame->get_w(),
-                                input_frame->get_h());
+    if (!video.input_texture ||
+        video.input_texture->get_width(0) != video.input_frame->get_w() ||
+        video.input_texture->get_height(0) != video.input_frame->get_h()) {
+      video.input_texture = gl::Texture2D::create(gl::InternalFormat::RGBA8,
+                                                  video.input_frame->get_w(),
+                                                  video.input_frame->get_h());
     }
 
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, ((input_frame->get_w() + 3) / 4) * 4);
-    inputTexture->upload(0, 0, 0, input_frame->get_w(), input_frame->get_h(),
-                         gl::PixelFormat::BGRA, gl::PixelType::UByte,
-                         input_frame->get_bits());
+    glPixelStorei(GL_UNPACK_ROW_LENGTH,
+                  ((video.input_frame->get_w() + 3) / 4) * 4);
+    video.input_texture->upload(0, 0, 0, video.input_frame->get_w(),
+                                video.input_frame->get_h(),
+                                gl::PixelFormat::BGRA, gl::PixelType::UByte,
+                                video.input_frame->get_bits());
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
 
-    input_frame->Release();
+    video.input_frame->Release();
   } else {
-    input_frame = nullptr;
+    video.input_frame = nullptr;
   }
 
-  prog->use();
-  if (auto resolution = prog->getUniform<gl::vec2>("iResolution")) {
+  video.prog->use();
+  if (auto resolution = video.prog->getUniform<gl::vec2>("iResolution")) {
     *resolution = gl::vec2{out_w, out_h};
   }
-  if (auto time = prog->getUniform<float>("iTime")) {
+  if (auto time = video.prog->getUniform<float>("iTime")) {
     *time = project_time;
   }
-  if (auto srate = prog->getUniform<float>("iSampleRate")) {
+  if (auto srate = video.prog->getUniform<float>("iSampleRate")) {
     *srate = host_get_sample_rate();
   }
-  if (inputTexture) {
-    if (auto cres = prog->getUniform<gl::vec2>("iChannelResolution")) {
-      *cres = gl::vec2{float(inputTexture->get_width(0)),
-                       float(inputTexture->get_height(0))};
+  if (video.input_texture) {
+    if (auto cres = video.prog->getUniform<gl::vec2>("iChannelResolution")) {
+      *cres = gl::vec2{float(video.input_texture->get_width(0)),
+                       float(video.input_texture->get_height(0))};
     }
-    if (auto ichannel = prog->getUniform<int>("iChannel")) {
+    if (auto ichannel = video.prog->getUniform<int>("iChannel")) {
       *ichannel = 0;
     }
-    inputTexture->bindTextureUnit(0);
+    video.input_texture->bindTextureUnit(0);
   }
 
-  if (auto ochannel = prog->getUniform<int>("oChannel")) {
+  if (auto ochannel = video.prog->getUniform<int>("oChannel")) {
     *ochannel = 1;
   }
 
-  if (!outputTexture) {
-    outputTexture =
+  if (!video.output_texture) {
+    video.output_texture =
         gl::Texture2D::create(gl::InternalFormat::RGBA8, out_w, out_h);
   }
-  outputTexture->bindImageUnit(1, 0, false, 0, gl::Access::WriteOnly,
-                               gl::InternalFormat::RGBA8);
+  video.output_texture->bindImageUnit(1, 0, false, 0, gl::Access::WriteOnly,
+                                      gl::InternalFormat::RGBA8);
 
   glDispatchCompute(out_w, out_h, 1);
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-  glPixelStorei(GL_PACK_ROW_LENGTH, ((output_frame->get_w() + 3) / 4) * 4);
-  outputTexture->download(0, gl::PixelFormat::BGRA, gl::PixelType::UByte,
-                          output_frame->get_rowspan() * output_frame->get_h(),
-                          output_frame->get_bits());
+  glPixelStorei(GL_PACK_ROW_LENGTH,
+                ((video.output_frame->get_w() + 3) / 4) * 4);
+  video.output_texture->download(0, gl::PixelFormat::BGRA, gl::PixelType::UByte,
+                                 video.output_frame->get_rowspan() *
+                                     video.output_frame->get_h(),
+                                 video.output_frame->get_bits());
   glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 
   // Let go of the context so that when the time comes to release objects, we do
   // not crash the main thread
   glfwMakeContextCurrent(nullptr);
 
-  return output_frame.get();
+  return video.output_frame.get();
 }
 } // namespace ogler
