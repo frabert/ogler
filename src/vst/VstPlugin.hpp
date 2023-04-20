@@ -27,6 +27,8 @@
 namespace vst {
 template <typename T> class VstPlugin {
   vst::AEffect effect;
+  vst::Rectangle edit_rect;
+  std::string chunkdata;
 
 protected:
   vst::HostCallback *const hostcb;
@@ -226,6 +228,46 @@ public:
                  return 2400;
                case PluginOpcode::GetPlugCategory:
                  return static_cast<std::intptr_t>(plugin->get_category());
+               case PluginOpcode::EditGetRect: {
+                 plugin->get_editor_bounds(
+                     plugin->edit_rect.top, plugin->edit_rect.left,
+                     plugin->edit_rect.bottom, plugin->edit_rect.right);
+                 auto dest = static_cast<vst::Rectangle **>(ptr);
+                 *dest = &plugin->edit_rect;
+
+                 return 1;
+               }
+               case PluginOpcode::EditOpen:
+                 plugin->open_editor(ptr);
+                 break;
+               case PluginOpcode::EditClose:
+                 plugin->close_editor();
+                 break;
+               case PluginOpcode::EditIdle:
+                 plugin->editor_idle();
+                 break;
+               case PluginOpcode::GetChunk: {
+                 std::stringstream stream;
+                 if (index) {
+                   plugin->save_preset_data(stream);
+                 } else {
+                   plugin->save_bank_data(stream);
+                 }
+
+                 plugin->chunkdata = stream.str();
+                 const char **addr = static_cast<const char **>(ptr);
+                 *addr = plugin->chunkdata.data();
+                 return plugin->chunkdata.length();
+               }
+               case PluginOpcode::SetChunk: {
+                 std::stringstream stream(
+                     std::string(static_cast<char *>(ptr), value));
+                 if (index) {
+                   plugin->load_preset_data(stream);
+                 } else {
+                   plugin->load_bank_data(stream);
+                 }
+               } break;
                default:
                  break;
                }

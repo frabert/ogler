@@ -44,16 +44,64 @@ FetchContent_Declare(
 )
 FetchContent_Declare(
     wdl
-    GIT_REPOSITORY https://github.com/justinfrankel/WDL
+    GIT_REPOSITORY https://www-dev.cockos.com/wdl/WDL.git
     GIT_TAG 139d0006275152b38ff7bbab56ccd112a219df91
-    GIT_SHALLOW TRUE
-    GIT_PROGRESS TRUE
-    USES_TERMINAL_DOWNLOAD TRUE
+)
+FetchContent_Declare(
+    scintilla
+    URL https://www.scintilla.org/scintilla534.tgz
+    URL_HASH SHA3_224=1be146d25195ff05514a6853afb847cd2488ad6fb2be094ed7586b1a
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
-FetchContent_MakeAvailable(reaper-sdk wdl galogen glrepo eglrepo)
+FetchContent_MakeAvailable(reaper-sdk wdl galogen glrepo eglrepo scintilla)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+add_library(scintilla STATIC
+    "${scintilla_SOURCE_DIR}/src/AutoComplete.cxx"
+    "${scintilla_SOURCE_DIR}/src/CallTip.cxx"
+    "${scintilla_SOURCE_DIR}/src/CaseConvert.cxx"
+    "${scintilla_SOURCE_DIR}/src/CaseFolder.cxx"
+    "${scintilla_SOURCE_DIR}/src/CellBuffer.cxx"
+    "${scintilla_SOURCE_DIR}/src/ChangeHistory.cxx"
+    "${scintilla_SOURCE_DIR}/src/CharacterCategoryMap.cxx"
+    "${scintilla_SOURCE_DIR}/src/CharacterType.cxx"
+    "${scintilla_SOURCE_DIR}/src/CharClassify.cxx"
+    "${scintilla_SOURCE_DIR}/src/ContractionState.cxx"
+    "${scintilla_SOURCE_DIR}/src/DBCS.cxx"
+    "${scintilla_SOURCE_DIR}/src/Decoration.cxx"
+    "${scintilla_SOURCE_DIR}/src/Document.cxx"
+    "${scintilla_SOURCE_DIR}/src/EditModel.cxx"
+    "${scintilla_SOURCE_DIR}/src/Editor.cxx"
+    "${scintilla_SOURCE_DIR}/src/EditView.cxx"
+    "${scintilla_SOURCE_DIR}/src/Geometry.cxx"
+    "${scintilla_SOURCE_DIR}/src/Indicator.cxx"
+    "${scintilla_SOURCE_DIR}/src/KeyMap.cxx"
+    "${scintilla_SOURCE_DIR}/src/LineMarker.cxx"
+    "${scintilla_SOURCE_DIR}/src/MarginView.cxx"
+    "${scintilla_SOURCE_DIR}/src/PerLine.cxx"
+    "${scintilla_SOURCE_DIR}/src/PositionCache.cxx"
+    "${scintilla_SOURCE_DIR}/src/RESearch.cxx"
+    "${scintilla_SOURCE_DIR}/src/RunStyles.cxx"
+    "${scintilla_SOURCE_DIR}/src/ScintillaBase.cxx"
+    "${scintilla_SOURCE_DIR}/src/Selection.cxx"
+    "${scintilla_SOURCE_DIR}/src/Style.cxx"
+    "${scintilla_SOURCE_DIR}/src/UniConversion.cxx"
+    "${scintilla_SOURCE_DIR}/src/UniqueString.cxx"
+    "${scintilla_SOURCE_DIR}/src/ViewStyle.cxx"
+    "${scintilla_SOURCE_DIR}/src/XPM.cxx"
+
+    "${scintilla_SOURCE_DIR}/call/ScintillaCall.cxx"
+
+    "${scintilla_SOURCE_DIR}/win32/HanjaDic.cxx"
+    "${scintilla_SOURCE_DIR}/win32/PlatWin.cxx"
+    "${scintilla_SOURCE_DIR}/win32/ScintillaWin.cxx")
+target_include_directories(scintilla
+    PUBLIC "${scintilla_SOURCE_DIR}/include"
+    PRIVATE "${scintilla_SOURCE_DIR}/src")
+target_link_libraries(scintilla PUBLIC gdi32 user32 imm32 ole32 uuid oleaut32 msimg32)
+set_target_properties(scintilla PROPERTIES CXX_STANDARD 17)
 
 add_executable(galogen
     "${galogen_SOURCE_DIR}/galogen.cpp"
@@ -82,10 +130,12 @@ target_include_directories(reaper_sdk
 
 find_package(GLFW3 REQUIRED)
 find_package(OpenGL REQUIRED COMPONENTS OpenGL)
+find_package(nlohmann_json 3 REQUIRED)
 
 add_library(ogler MODULE
     "src/main.cpp"
     "src/ogler.cpp"
+    "src/ogler_editor.cpp"
     "src/opengl.cpp"
     "src/vst/ReaperVstPlugin.cpp")
 
@@ -97,4 +147,4 @@ target_compile_definitions(ogler
     OGLER_VER_MAJOR=${OGLER_VER_MAJOR}
     OGLER_VER_MINOR=${OGLER_VER_MINOR}
     OGLER_VER_REV=${OGLER_VER_REV})
-target_link_libraries(ogler PRIVATE gl GLFW::GLFW3 OpenGL::GL reaper_sdk)
+target_link_libraries(ogler PRIVATE gl GLFW::GLFW3 OpenGL::GL reaper_sdk scintilla ComCtl32 nlohmann_json::nlohmann_json)

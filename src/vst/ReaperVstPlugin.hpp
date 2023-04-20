@@ -31,6 +31,12 @@
 #include <optional>
 #include <span>
 
+namespace std {
+template <> struct default_delete<IVideoFrame> {
+  void operator()(IVideoFrame *frame) const;
+};
+} // namespace std
+
 namespace vst {
 
 enum class FrameFormat : int {

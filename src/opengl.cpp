@@ -40,16 +40,21 @@ Shader::~Shader() {
   }
 }
 
-std::variant<Shader, std::string> Shader::compile(ShaderKind type,
-                                                  std::string_view source) {
+std::variant<Shader, std::string>
+Shader::compile(ShaderKind type, const std::vector<std::string_view> &sources) {
   auto id = glCreateShader(static_cast<GLenum>(type));
   if (!id) {
     return "Cannot create shader";
   }
 
-  GLint size = source.size();
-  auto data = source.data();
-  glShaderSource(id, 1, &data, &size);
+  std::vector<GLint> sizes(sources.size());
+  std::vector<const char *> data(sources.size());
+  for (size_t i = 0; i < sources.size(); ++i) {
+    sizes[i] = sources[i].size();
+    data[i] = sources[i].data();
+  }
+
+  glShaderSource(id, sources.size(), data.data(), sizes.data());
   glCompileShader(id);
 
   int success;
@@ -61,7 +66,7 @@ std::variant<Shader, std::string> Shader::compile(ShaderKind type,
     str.reserve(log_size - 1);
     glGetShaderInfoLog(id, str.capacity(), nullptr, str.data());
     glDeleteShader(id);
-    return str;
+    return std::move(str);
   }
 
   return Shader{id};
@@ -188,7 +193,7 @@ void VertexArray::attribBinding(int index, int binding) const {
 
 void VertexArray::bind() const { glBindVertexArray(id); }
 
-Texture2D::Texture2D(GLuint id) : id(id) {}
+Texture2D::Texture2D(GLuint id) : id(id) { assert(glIsTexture(id)); }
 Texture2D::~Texture2D() {
   if (id) {
     glDeleteTextures(1, &id);

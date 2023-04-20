@@ -16,15 +16,32 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include "ReaperVstPlugin.hpp"
+#pragma once
 
-namespace vst {
-IREAPERVideoProcessor *(*video_CreateVideoProcessor)(void *fxctx,
-                                                     int version){};
-} // namespace vst
+#include "ogler.hpp"
 
-namespace std {
-void default_delete<IVideoFrame>::operator()(IVideoFrame *frame) const {
-  frame->Release();
+struct SCNotification;
+namespace Scintilla {
+class ScintillaCall;
 }
-} // namespace std
+
+namespace ogler {
+struct OglerVst::Editor {
+  HWND parent_wnd, child_wnd, scintilla, statusbar, recompile_btn;
+  std::unique_ptr<Scintilla::ScintillaCall> sc_call;
+
+  int &width;
+  int &height;
+
+  OglerVst &vst;
+
+  Editor(void *hWnd, int &w, int &h, OglerVst &vst);
+  ~Editor();
+
+private:
+  void create();
+  void resize();
+  void recompile_clicked();
+  void scintilla_noti(unsigned code, const SCNotification &);
+};
+} // namespace ogler

@@ -24,6 +24,7 @@
 #include <optional>
 #include <string_view>
 #include <variant>
+#include <vector>
 
 namespace gl {
 template <typename T> union tvec2 {
@@ -98,8 +99,8 @@ public:
   Shader &operator=(const Shader &) = delete;
   ~Shader();
 
-  static std::variant<Shader, std::string> compile(ShaderKind type,
-                                                   std::string_view source);
+  static std::variant<Shader, std::string>
+  compile(ShaderKind type, const std::vector<std::string_view> &sources);
 };
 
 template <typename T> struct uniform_accessor;

@@ -27,10 +27,28 @@
 
 HINSTANCE hInstance;
 
+extern "C" {
+int Scintilla_RegisterClasses(void *hInstance);
+int Scintilla_ReleaseResources();
+}
+
+namespace ogler {
+HINSTANCE get_hinstance() { return hInstance; }
+} // namespace ogler
+
 extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
                                LPVOID lpvReserved) {
   hInstance = hInst;
-  return 1;
+  if (dwReason == DLL_PROCESS_ATTACH) {
+    if (!Scintilla_RegisterClasses(hInst)) {
+      return false;
+    }
+  } else if (dwReason == DLL_PROCESS_DETACH) {
+    if (lpvReserved == NULL) {
+      Scintilla_ReleaseResources();
+    }
+  }
+  return true;
 }
 
 extern "C" __declspec(dllexport) vst::AEffect *VSTPluginMain(
