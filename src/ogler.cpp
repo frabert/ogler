@@ -40,6 +40,8 @@ void std::default_delete<GLFWwindow>::operator()(GLFWwindow *wnd) const {
 
 namespace ogler {
 
+static constexpr int AlignTo4(int x) { return (x + 3) & 0xFFFFFFFC; }
+
 static void DebugCallback(GLenum source, GLenum type, GLuint id,
                           GLenum severity, GLsizei length,
                           const GLchar *message, const void *userParam) {
@@ -190,8 +192,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
                                                   video.input_frame->get_h());
     }
 
-    glPixelStorei(GL_UNPACK_ROW_LENGTH,
-                  ((video.input_frame->get_w() + 3) / 4) * 4);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, AlignTo4(video.input_frame->get_w()));
     video.input_texture->upload(0, 0, 0, video.input_frame->get_w(),
                                 video.input_frame->get_h(),
                                 gl::PixelFormat::BGRA, gl::PixelType::UByte,
@@ -245,8 +246,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
   glDispatchCompute(out_w, out_h, 1);
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-  glPixelStorei(GL_PACK_ROW_LENGTH,
-                ((video.output_frame->get_w() + 3) / 4) * 4);
+  glPixelStorei(GL_PACK_ROW_LENGTH, AlignTo4(video.output_frame->get_w()));
   video.output_texture->download(0, gl::PixelFormat::BGRA, gl::PixelType::UByte,
                                  video.output_frame->get_rowspan() *
                                      video.output_frame->get_h(),
