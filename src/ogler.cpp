@@ -197,8 +197,6 @@ OglerVst::video_process_frame(std::span<const double> parms,
                                 gl::PixelFormat::BGRA, gl::PixelType::UByte,
                                 video.input_frame->get_bits());
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-
-    video.input_frame->Release();
   } else {
     video.input_frame = nullptr;
   }
