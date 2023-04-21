@@ -94,6 +94,18 @@ struct PatchData {
   void serialize(std::ostream &);
 };
 
+struct ParameterInfo {
+  std::optional<gl::Uniform<float>> uniform;
+  std::string display_name;
+  float default_value;
+  float minimum_val;
+  float maximum_val;
+  float medium_value;
+  float step_size;
+
+  float current_value;
+};
+
 class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   struct {
     std::unique_ptr<GLFWwindow> window;
@@ -119,6 +131,8 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   std::mutex video_ctx_mtx;
 
   PatchData data;
+
+  std::vector<ParameterInfo> parameters;
 
   std::optional<std::string> recompile_shaders();
 

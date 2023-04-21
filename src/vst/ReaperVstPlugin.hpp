@@ -26,6 +26,7 @@
 #include <reaper_plugin_functions.h>
 #include <video_processor.h>
 
+#include <array>
 #include <fstream>
 #include <memory>
 #include <optional>
@@ -72,8 +73,14 @@ protected:
   }
 
   virtual std::optional<double> video_get_parameter(int index) noexcept {
-    return std::nullopt;
+    if (index < get_num_parameters()) {
+      return this->get_parameter(index);
+    } else {
+      return std::nullopt;
+    }
   }
+
+  virtual int get_num_parameters() noexcept { return T::num_params; }
 
   IVideoFrame *new_video_frame(int width, int height,
                                FrameFormat format) noexcept {
@@ -84,6 +91,33 @@ protected:
 
   IVideoFrame *get_video_input(int index, FrameFormat fmt) noexcept {
     return vproc->renderInputVideoFrame(index, static_cast<int>(fmt));
+  }
+
+  virtual Supported can_do(std::string_view s) noexcept override {
+    if (s == "hasCockosExtensions") {
+      return static_cast<Supported>(0xbeef0000);
+    }
+    return Supported::No;
+  }
+
+  virtual void get_param_range(double &min, double &max) {}
+
+  std::intptr_t vendor_specific(std::int32_t index, std::intptr_t value,
+                                void *ptr, float opt) noexcept final {
+    if (index == 0xdeadbef0 && ptr && value >= 0 &&
+        value < get_num_parameters()) {
+      auto range = static_cast<double *>(ptr);
+      get_param_range(range[0], range[1]);
+      return 0xbeef;
+    }
+
+    return 0;
+  }
+
+  void adjust_params_num(int start_idx, int num) noexcept {
+    int list[] = {start_idx, num};
+    this->hostcb(get_effect(), HostOpcodes::VendorSpecific, 0xdeadbeef,
+                 HostOpcodes::Automate, list, 0);
   }
 
   virtual void init() noexcept override {

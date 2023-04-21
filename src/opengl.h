@@ -303,6 +303,12 @@ public:
   }
 };
 
+struct UniformInfo {
+  std::string name;
+  GLsizei size;
+  GLenum type;
+};
+
 class Program final {
   GLuint id;
 
@@ -351,6 +357,8 @@ public:
     }
     return Uniform<T>(id, loc);
   }
+
+  std::vector<UniformInfo> getActiveUniforms() const;
 };
 
 enum class InternalFormat : GLenum {

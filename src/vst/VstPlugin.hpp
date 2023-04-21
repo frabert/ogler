@@ -127,8 +127,6 @@ protected:
   }
   virtual std::string_view get_parameter_text(int index) noexcept { return ""; }
   virtual std::string_view get_parameter_name(int index) noexcept { return ""; }
-  virtual float get_parameter_value(int index) noexcept { return 0; }
-  virtual void set_parameter_value(int index, float value) noexcept {}
   virtual bool can_be_automated(int index) noexcept { return false; }
   virtual bool string_to_parameter(int index, std::string text) noexcept {
     return false;
@@ -137,6 +135,11 @@ protected:
   virtual void save_bank_data(std::ostream &s) noexcept {}
   virtual void load_preset_data(std::istream &s) noexcept {}
   virtual void load_bank_data(std::istream &s) noexcept {}
+
+  virtual std::intptr_t vendor_specific(std::int32_t index, std::intptr_t value,
+                                        void *ptr, float opt) noexcept {
+    return 0;
+  }
 
 public:
   AEffect *get_effect() noexcept { return &effect; }

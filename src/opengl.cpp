@@ -90,6 +90,21 @@ Program::~Program() {
 
 void Program::use() const { glUseProgram(id); }
 
+std::vector<UniformInfo> Program::getActiveUniforms() const {
+  GLint num_uniforms, max_name_length;
+  glGetProgramiv(id, GL_ACTIVE_UNIFORMS, &num_uniforms);
+  glGetProgramiv(id, GL_ACTIVE_UNIFORM_MAX_LENGTH, &max_name_length);
+  std::vector<UniformInfo> res(num_uniforms);
+  std::vector<char> name_buf(max_name_length);
+  for (GLint i = 0; i < num_uniforms; ++i) {
+    GLsizei name_len;
+    glGetActiveUniform(id, i, name_buf.size(), &name_len, &res[i].size,
+                       &res[i].type, name_buf.data());
+    res[i].name = std::string(name_buf.data(), name_len);
+  }
+  return res;
+}
+
 Buffer::Buffer(GLuint id) : id(id) { assert(glIsBuffer(id)); }
 
 Buffer::~Buffer() {

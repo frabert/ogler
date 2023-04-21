@@ -69,9 +69,8 @@ uniform float iWet;)",
                                                               source,
                                                               R"(void main() {
     vec4 fragColor;
-    mainImage(fragColor, vec2(gl_GlobalInvocationID.xy));
-    ivec2 coords = ivec2(gl_GlobalInvocationID.x, gl_NumWorkGroups.y - gl_GlobalInvocationID.y);
-    imageStore(oChannel, coords, fragColor);
+    mainImage(fragColor, vec2(gl_GlobalInvocationID));
+    imageStore(oChannel, ivec2(gl_GlobalInvocationID.xy), fragColor);
 })"});
 
   if (std::holds_alternative<std::string>(shader)) {
