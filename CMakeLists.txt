@@ -133,6 +133,7 @@ find_package(OpenGL REQUIRED COMPONENTS OpenGL)
 find_package(nlohmann_json 3 REQUIRED)
 
 add_library(ogler MODULE
+    "src/gl_context_lock.cpp"
     "src/main.cpp"
     "src/ogler.cpp"
     "src/ogler_editor.cpp"

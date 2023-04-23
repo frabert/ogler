@@ -128,8 +128,6 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   int editor_h{768};
   std::unique_ptr<Editor> editor;
 
-  std::mutex video_ctx_mtx;
-
   PatchData data;
 
   std::vector<ParameterInfo> parameters;

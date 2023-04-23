@@ -17,6 +17,7 @@
 */
 
 #include "ogler.hpp"
+#include "gl_context_lock.hpp"
 #include "ogler_editor.hpp"
 
 #include <mutex>
@@ -86,7 +87,8 @@ uniform float iWet;)",
 
 OglerVst::OglerVst(vst::HostCallback *hostcb)
     : vst::ReaperVstPlugin<OglerVst>(hostcb) {
-  glfwInit(), glfwSetErrorCallback(glfw_error_callback);
+  glfwInit();
+  glfwSetErrorCallback(glfw_error_callback);
   glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -137,8 +139,8 @@ void OglerVst::save_bank_data(std::ostream &s) noexcept { save_preset_data(s); }
 void OglerVst::load_bank_data(std::istream &s) noexcept { load_preset_data(s); }
 
 std::optional<std::string> OglerVst::recompile_shaders() {
-  std::unique_lock<std::mutex> lock(video_ctx_mtx);
-  glfwMakeContextCurrent(video.window.get());
+  GlContextLock mtx(*video.window);
+  std::unique_lock<GlContextLock> lock(mtx);
 
   auto video_prog = CreateProgram(data.video_shader);
   std::optional<std::string> res{};
@@ -158,7 +160,6 @@ std::optional<std::string> OglerVst::recompile_shaders() {
     video.iFrameRate = video.prog->getUniform<float>("iFrameRate");
     video.iWet = video.prog->getUniform<float>("iWet");
   }
-  glfwMakeContextCurrent(nullptr);
 
   return res;
 }
@@ -167,8 +168,8 @@ IVideoFrame *
 OglerVst::video_process_frame(std::span<const double> parms,
                               double project_time, double framerate,
                               vst::FrameFormat force_format) noexcept {
-  std::unique_lock<std::mutex> lock(video_ctx_mtx);
-  glfwMakeContextCurrent(video.window.get());
+  GlContextLock mtx(*video.window);
+  std::unique_lock<GlContextLock> lock(mtx);
   glEnable(GL_DEBUG_OUTPUT);
   glDebugMessageCallback(DebugCallback, nullptr);
   if (!video.prog) {
@@ -247,10 +248,6 @@ OglerVst::video_process_frame(std::span<const double> parms,
                                      video.output_frame->get_h(),
                                  video.output_frame->get_bits());
   glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-
-  // Let go of the context so that when the time comes to release objects, we do
-  // not crash the main thread
-  glfwMakeContextCurrent(nullptr);
 
   return video.output_frame.get();
 }
