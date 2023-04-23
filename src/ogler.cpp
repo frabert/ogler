@@ -44,8 +44,8 @@ namespace ogler {
 static constexpr int AlignTo4(int x) { return (x + 3) & 0xFFFFFFFC; }
 
 static void gl_error_callback(GLenum source, GLenum type, GLuint id,
-                          GLenum severity, GLsizei length,
-                          const GLchar *message, const void *userParam) {
+                              GLenum severity, GLsizei length,
+                              const GLchar *message, const void *userParam) {
   DBG << "GL error: " << message << '\n';
   DebugBreak();
 }
@@ -180,8 +180,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
   constexpr int out_w = 1024;
   constexpr int out_h = 768;
   if (!video.output_frame) {
-    video.output_frame = std::unique_ptr<IVideoFrame>(
-        new_video_frame(out_w, out_h, vst::FrameFormat::RGBA));
+    video.output_frame = new_video_frame(out_w, out_h, vst::FrameFormat::RGBA);
   }
   if (get_video_num_inputs() > 0) {
     auto input_frame = get_video_input(0, vst::FrameFormat::RGBA);
@@ -251,6 +250,6 @@ OglerVst::video_process_frame(std::span<const double> parms,
                                  video.output_frame->get_bits());
   glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 
-  return video.output_frame.get();
+  return video.output_frame;
 }
 } // namespace ogler

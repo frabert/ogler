@@ -22,9 +22,3 @@ namespace vst {
 IREAPERVideoProcessor *(*video_CreateVideoProcessor)(void *fxctx,
                                                      int version){};
 } // namespace vst
-
-namespace std {
-void default_delete<IVideoFrame>::operator()(IVideoFrame *frame) const {
-  frame->Release();
-}
-} // namespace std
