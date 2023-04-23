@@ -23,6 +23,8 @@
 
 #include <iostream>
 
+#include <glslang/Public/ShaderLang.h>
+
 HINSTANCE hInstance;
 
 extern "C" {
@@ -38,10 +40,12 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
                                LPVOID lpvReserved) {
   hInstance = hInst;
   if (dwReason == DLL_PROCESS_ATTACH) {
+    glslang::InitializeProcess();
     if (!Scintilla_RegisterClasses(hInst)) {
       return false;
     }
   } else if (dwReason == DLL_PROCESS_DETACH) {
+    glslang::FinalizeProcess();
     if (lpvReserved == NULL) {
       Scintilla_ReleaseResources();
     }

@@ -17,6 +17,7 @@
 */
 
 #include "ogler.hpp"
+#include "compile_shader.hpp"
 #include "ogler_editor.hpp"
 
 #include <mutex>
@@ -73,7 +74,33 @@ void OglerVst::save_bank_data(std::ostream &s) noexcept { save_preset_data(s); }
 
 void OglerVst::load_bank_data(std::istream &s) noexcept { load_preset_data(s); }
 
-std::optional<std::string> OglerVst::recompile_shaders() { return {}; }
+std::optional<std::string> OglerVst::recompile_shaders() {
+  auto res = compile_shader({R"(#version 460
+
+layout(local_size_x = 1, local_size_y = 1) in;
+
+layout(binding = 0) uniform UniformBlock {
+  vec2 iResolution;
+  float iTime;
+  float iSampleRate;
+  vec2 iChannelResolution;
+  float iFrameRate;
+  float iWet;
+};
+layout(binding = 1) uniform sampler2D iChannel;
+layout(binding = 1) uniform writeonly image2D oChannel;)",
+                             data.video_shader,
+                             R"(void main() {
+    vec4 fragColor;
+    mainImage(fragColor, vec2(gl_GlobalInvocationID.xy));
+    ivec2 coords = ivec2(gl_GlobalInvocationID.x, gl_NumWorkGroups.y - gl_GlobalInvocationID.y);
+    imageStore(oChannel, coords, fragColor);
+})"});
+  if (std::holds_alternative<std::string>(res)) {
+    return std::move(std::get<std::string>(res));
+  }
+  return {};
+}
 
 IVideoFrame *
 OglerVst::video_process_frame(std::span<const double> parms,

@@ -17,17 +17,19 @@
 */
 
 #include "vulkan_context.hpp"
-#include <vulkan/vulkan_enums.hpp>
-#include <vulkan/vulkan_structs.hpp>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+
+#define OGLER_CONCAT_(x, y) x##y
+#define OGLER_CONCAT(x, y) OGLER_CONCAT_(x, y)
+#define OGLER_API_VERSION OGLER_CONCAT(VK_API_VERSION_, OGLER_VULKAN_VER)
 
 namespace ogler {
 
 static vk::raii::Instance make_instance(vk::raii::Context &ctx) {
   vk::ApplicationInfo app_info("ogler", VK_MAKE_VERSION(1, 0, 0), "ogler",
-                               VK_MAKE_VERSION(1, 0, 0), VK_API_VERSION_1_0);
+                               VK_MAKE_VERSION(1, 0, 0), OGLER_API_VERSION);
   vk::InstanceCreateInfo instance_create_info({}, &app_info, 0, nullptr, 0,
                                               nullptr);
   return vk::raii::Instance(ctx, instance_create_info);

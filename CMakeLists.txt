@@ -29,8 +29,16 @@ FetchContent_Declare(
     URL_HASH SHA3_224=1be146d25195ff05514a6853afb847cd2488ad6fb2be094ed7586b1a
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
+FetchContent_Declare(
+    glslang
+    GIT_REPOSITORY https://github.com/KhronosGroup/glslang
+    GIT_TAG 14e5a04e70057972eef8a40df422e30a3b70e4b5 # v12.1.0
+    GIT_SHALLOW TRUE
+    GIT_PROGRESS TRUE
+    USES_TERMINAL_DOWNLOAD TRUE
+)
 
-FetchContent_MakeAvailable(reaper-sdk wdl scintilla)
+FetchContent_MakeAvailable(reaper-sdk wdl scintilla glslang)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
@@ -89,12 +97,14 @@ find_package(Vulkan REQUIRED COMPONENTS glslang)
 find_package(nlohmann_json 3 REQUIRED)
 
 add_library(ogler MODULE
+    "src/compile_shader.cpp"
     "src/main.cpp"
     "src/ogler.cpp"
     "src/ogler_editor.cpp"
     "src/vulkan_context.cpp"
     "src/vst/ReaperVstPlugin.cpp")
 
+set(OGLER_VULKAN_VER "1_0")
 set_target_properties(ogler
     PROPERTIES
     CXX_STANDARD 20)
@@ -102,8 +112,9 @@ target_compile_definitions(ogler
     PRIVATE
     OGLER_VER_MAJOR=${OGLER_VER_MAJOR}
     OGLER_VER_MINOR=${OGLER_VER_MINOR}
-    OGLER_VER_REV=${OGLER_VER_REV})
-target_link_libraries(ogler PRIVATE Vulkan::Vulkan Vulkan::Headers Vulkan::glslang reaper_sdk scintilla ComCtl32 nlohmann_json::nlohmann_json)
+    OGLER_VER_REV=${OGLER_VER_REV}
+    OGLER_VULKAN_VER=${OGLER_VULKAN_VER})
+target_link_libraries(ogler PRIVATE Vulkan::Vulkan Vulkan::Headers reaper_sdk scintilla ComCtl32 nlohmann_json::nlohmann_json glslang SPIRV)
 
 install(
     TARGETS ogler
