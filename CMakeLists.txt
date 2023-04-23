@@ -19,30 +19,6 @@ FetchContent_Declare(
     USES_TERMINAL_DOWNLOAD TRUE
 )
 FetchContent_Declare(
-    galogen
-    GIT_REPOSITORY https://github.com/frabert/galogen
-    GIT_TAG 44db304c6ff5eb82cfd2d367c72badc8b7874150
-    GIT_SHALLOW TRUE
-    GIT_PROGRESS TRUE
-    USES_TERMINAL_DOWNLOAD TRUE
-)
-FetchContent_Declare(
-    glrepo
-    GIT_REPOSITORY https://github.com/KhronosGroup/OpenGL-Registry
-    GIT_TAG dc30595984d45eaa0be3198cade8726d2091c89d
-    GIT_SHALLOW TRUE
-    GIT_PROGRESS TRUE
-    USES_TERMINAL_DOWNLOAD TRUE
-)
-FetchContent_Declare(
-    eglrepo
-    GIT_REPOSITORY https://github.com/KhronosGroup/EGL-Registry
-    GIT_TAG 9ab603608d6b165f79f17eee9ee1ced861625893
-    GIT_SHALLOW TRUE
-    GIT_PROGRESS TRUE
-    USES_TERMINAL_DOWNLOAD TRUE
-)
-FetchContent_Declare(
     wdl
     GIT_REPOSITORY https://www-dev.cockos.com/wdl/WDL.git
     GIT_TAG 139d0006275152b38ff7bbab56ccd112a219df91
@@ -54,7 +30,7 @@ FetchContent_Declare(
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
-FetchContent_MakeAvailable(reaper-sdk wdl galogen glrepo eglrepo scintilla)
+FetchContent_MakeAvailable(reaper-sdk wdl scintilla)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
@@ -103,41 +79,20 @@ target_include_directories(scintilla
 target_link_libraries(scintilla PUBLIC gdi32 user32 imm32 ole32 uuid oleaut32 msimg32)
 set_target_properties(scintilla PROPERTIES CXX_STANDARD 17)
 
-add_executable(galogen
-    "${galogen_SOURCE_DIR}/galogen.cpp"
-    "${galogen_SOURCE_DIR}/third_party/tinyxml2.cpp")
-
-add_custom_command(
-    OUTPUT
-    "${CMAKE_CURRENT_BINARY_DIR}/gl.h"
-    "${CMAKE_CURRENT_BINARY_DIR}/gl.c"
-    COMMAND galogen "${glrepo_SOURCE_DIR}/xml/gl.xml" --api gl --ver 4.6 --profile core
-    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-    DEPENDS "${glrepo_SOURCE_DIR}/xml/gl.xml"
-    COMMENT "Generating gl.h")
-
-add_library(gl STATIC
-    "${CMAKE_CURRENT_BINARY_DIR}/gl.c")
-target_include_directories(gl PUBLIC
-    "${CMAKE_CURRENT_BINARY_DIR}"
-    "${eglrepo_SOURCE_DIR}/api")
-
 add_library(reaper_sdk STATIC "${CMAKE_CURRENT_SOURCE_DIR}/src/reaper_sdk.cpp")
 target_include_directories(reaper_sdk
     PUBLIC
     "${reaper-sdk_SOURCE_DIR}/sdk"
     "${wdl_SOURCE_DIR}")
 
-find_package(GLFW3 REQUIRED)
-find_package(OpenGL REQUIRED COMPONENTS OpenGL)
+find_package(Vulkan REQUIRED COMPONENTS glslang)
 find_package(nlohmann_json 3 REQUIRED)
 
 add_library(ogler MODULE
-    "src/gl_context_lock.cpp"
     "src/main.cpp"
     "src/ogler.cpp"
     "src/ogler_editor.cpp"
-    "src/opengl.cpp"
+    "src/vulkan_context.cpp"
     "src/vst/ReaperVstPlugin.cpp")
 
 set_target_properties(ogler
@@ -148,7 +103,7 @@ target_compile_definitions(ogler
     OGLER_VER_MAJOR=${OGLER_VER_MAJOR}
     OGLER_VER_MINOR=${OGLER_VER_MINOR}
     OGLER_VER_REV=${OGLER_VER_REV})
-target_link_libraries(ogler PRIVATE gl GLFW::GLFW3 OpenGL::GL reaper_sdk scintilla ComCtl32 nlohmann_json::nlohmann_json)
+target_link_libraries(ogler PRIVATE Vulkan::Vulkan Vulkan::Headers Vulkan::glslang reaper_sdk scintilla ComCtl32 nlohmann_json::nlohmann_json)
 
 install(
     TARGETS ogler

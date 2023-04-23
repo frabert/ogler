@@ -18,15 +18,31 @@
 
 #pragma once
 
-struct GLFWwindow;
+#include <vulkan/vulkan_raii.hpp>
+
+#include <utility>
 
 namespace ogler {
-class GlContextLock {
-    GLFWwindow* wnd;
+class VulkanContext {
 public:
-    GlContextLock(GLFWwindow &);
-    void lock();
-    void unlock();
-    bool try_lock();
+  vk::raii::Context ctx;
+  vk::raii::Instance instance;
+  vk::raii::PhysicalDevice phys_device;
+  uint32_t queue_family_index;
+  vk::raii::Device device;
+  vk::raii::CommandPool command_pool;
+
+  VulkanContext();
+
+  std::pair<vk::raii::Buffer, vk::raii::DeviceMemory>
+  create_buffer(vk::BufferCreateFlags create_flags, vk::DeviceSize size,
+                vk::BufferUsageFlags usage_flags, vk::SharingMode sharing_mode,
+                vk::MemoryPropertyFlags properties);
+
+  vk::raii::CommandBuffer create_command_buffer();
+
+  std::pair<vk::raii::Image, vk::raii::DeviceMemory>
+  create_image(uint32_t width, uint32_t height, vk::Format format,
+               vk::ImageTiling tiling, vk::ImageUsageFlags usage);
 };
-}
+} // namespace ogler

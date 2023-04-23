@@ -21,22 +21,14 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include "opengl.h"
 #include "vst/ReaperVstPlugin.hpp"
 
 #include <memory>
-#include <mutex>
+
+#include "vulkan_context.hpp"
 
 #define OGLER_STRINGIZE_(x) #x
 #define OGLER_STRINGIZE(x) OGLER_STRINGIZE_(x)
-
-struct GLFWwindow;
-
-namespace std {
-template <> struct default_delete<GLFWwindow> {
-  void operator()(GLFWwindow *wnd) const;
-};
-} // namespace std
 
 namespace ogler {
 HINSTANCE get_hinstance();
@@ -95,7 +87,6 @@ struct PatchData {
 };
 
 struct ParameterInfo {
-  std::optional<gl::Uniform<float>> uniform;
   std::string display_name;
   float default_value;
   float minimum_val;
@@ -107,21 +98,7 @@ struct ParameterInfo {
 };
 
 class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
-  struct {
-    std::unique_ptr<GLFWwindow> window;
-    std::optional<gl::Program> prog;
-    std::optional<gl::Texture2D> input_texture, output_texture;
-    IVideoFrame *output_frame{};
-
-    std::optional<gl::Uniform<gl::vec2>> iResolution;
-    std::optional<gl::Uniform<float>> iTime;
-    std::optional<gl::Uniform<float>> iSampleRate;
-    std::optional<gl::Uniform<gl::vec2>> iChannelResolution;
-    std::optional<gl::Uniform<int>> iChannel;
-    std::optional<gl::Uniform<int>> oChannel;
-    std::optional<gl::Uniform<float>> iFrameRate;
-    std::optional<gl::Uniform<float>> iWet;
-  } video;
+  VulkanContext video_context;
 
   struct Editor;
   int editor_w{1024};
