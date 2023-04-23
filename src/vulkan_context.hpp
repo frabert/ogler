@@ -20,6 +20,7 @@
 
 #include <vulkan/vulkan_raii.hpp>
 
+#include <span>
 #include <utility>
 
 namespace ogler {
@@ -44,5 +45,7 @@ public:
   std::pair<vk::raii::Image, vk::raii::DeviceMemory>
   create_image(uint32_t width, uint32_t height, vk::Format format,
                vk::ImageTiling tiling, vk::ImageUsageFlags usage);
+
+  vk::raii::ShaderModule create_shader_module(std::span<unsigned> code);
 };
 } // namespace ogler

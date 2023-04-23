@@ -125,4 +125,10 @@ VulkanContext::create_image(uint32_t width, uint32_t height, vk::Format format,
 
   return {std::move(image), std::move(mem)};
 }
+
+vk::raii::ShaderModule
+VulkanContext::create_shader_module(std::span<unsigned int> code) {
+  vk::ShaderModuleCreateInfo create_info({}, code.size_bytes(), code.data());
+  return device.createShaderModule(create_info);
+}
 } // namespace ogler

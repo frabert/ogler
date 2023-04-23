@@ -88,7 +88,7 @@ layout(binding = 0) uniform UniformBlock {
   float iWet;
 };
 layout(binding = 1) uniform sampler2D iChannel;
-layout(binding = 1) uniform writeonly image2D oChannel;)",
+layout(binding = 2) uniform writeonly image2D oChannel;)",
                              data.video_shader,
                              R"(void main() {
     vec4 fragColor;
