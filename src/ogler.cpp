@@ -43,14 +43,16 @@ namespace ogler {
 
 static constexpr int AlignTo4(int x) { return (x + 3) & 0xFFFFFFFC; }
 
-static void DebugCallback(GLenum source, GLenum type, GLuint id,
+static void gl_error_callback(GLenum source, GLenum type, GLuint id,
                           GLenum severity, GLsizei length,
                           const GLchar *message, const void *userParam) {
   DBG << "GL error: " << message << '\n';
+  DebugBreak();
 }
 
 static void glfw_error_callback(int error, const char *description) {
   DBG << "GLFW error " << error << ": " << description << '\n';
+  DebugBreak();
 }
 
 static std::variant<gl::Program, std::string>
@@ -171,7 +173,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
   GlContextLock mtx(*video.window);
   std::unique_lock<GlContextLock> lock(mtx);
   glEnable(GL_DEBUG_OUTPUT);
-  glDebugMessageCallback(DebugCallback, nullptr);
+  glDebugMessageCallback(gl_error_callback, nullptr);
   if (!video.prog) {
     return nullptr;
   }
