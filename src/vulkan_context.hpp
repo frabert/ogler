@@ -24,6 +24,30 @@
 #include <utility>
 
 namespace ogler {
+struct Image {
+  vk::raii::Image image;
+  vk::raii::DeviceMemory memory;
+  vk::Format format;
+
+  int width;
+  int height;
+
+  Image(vk::raii::Image &&img, vk::raii::DeviceMemory &&mem, vk::Format fmt,
+        int w, int h)
+      : image(std::move(img)), memory(std::move(mem)), format(fmt), width(w),
+        height(h) {}
+};
+
+struct Buffer {
+  vk::raii::Buffer buffer;
+  vk::raii::DeviceMemory memory;
+
+  int size;
+
+  Buffer(vk::raii::Buffer &&buf, vk::raii::DeviceMemory &&mem, int sz)
+      : buffer(std::move(buf)), memory(std::move(mem)), size(sz) {}
+};
+
 class VulkanContext {
 public:
   vk::raii::Context ctx;
@@ -35,17 +59,40 @@ public:
 
   VulkanContext();
 
-  std::pair<vk::raii::Buffer, vk::raii::DeviceMemory>
-  create_buffer(vk::BufferCreateFlags create_flags, vk::DeviceSize size,
-                vk::BufferUsageFlags usage_flags, vk::SharingMode sharing_mode,
-                vk::MemoryPropertyFlags properties);
+  Buffer create_buffer(vk::BufferCreateFlags create_flags, vk::DeviceSize size,
+                       vk::BufferUsageFlags usage_flags,
+                       vk::SharingMode sharing_mode,
+                       vk::MemoryPropertyFlags properties);
 
   vk::raii::CommandBuffer create_command_buffer();
 
-  std::pair<vk::raii::Image, vk::raii::DeviceMemory>
-  create_image(uint32_t width, uint32_t height, vk::Format format,
-               vk::ImageTiling tiling, vk::ImageUsageFlags usage);
+  Image create_image(uint32_t width, uint32_t height, vk::Format format,
+                     vk::ImageTiling tiling, vk::ImageUsageFlags usage);
 
-  vk::raii::ShaderModule create_shader_module(std::span<unsigned> code);
+  vk::raii::ImageView create_image_view(Image &img, vk::Format format);
+
+  vk::raii::ShaderModule create_shader_module(std::span<const unsigned> code);
+
+  vk::raii::PipelineLayout
+  create_pipeline_layout(vk::raii::DescriptorSetLayout &descriptor_set_layout,
+                         int push_constants_size);
+
+  vk::raii::PipelineCache create_pipeline_cache();
+
+  vk::raii::Pipeline
+  create_compute_pipeline(vk::raii::ShaderModule &module,
+                          const char *entry_point,
+                          vk::raii::PipelineLayout &pipeline_layout,
+                          vk::raii::PipelineCache &pipeline_cache);
+
+  vk::raii::CommandPool create_compute_command_pool();
+
+  vk::raii::Sampler create_sampler();
+
+  void write_descriptor_sets(const std::vector<vk::WriteDescriptorSet> &sets);
+
+  vk::raii::Queue get_queue(uint32_t index);
+
+  vk::raii::Fence create_fence();
 };
 } // namespace ogler

@@ -24,6 +24,7 @@
 #include "vst/ReaperVstPlugin.hpp"
 
 #include <memory>
+#include <mutex>
 
 #include "vulkan_context.hpp"
 
@@ -98,7 +99,24 @@ struct ParameterInfo {
 };
 
 class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
-  VulkanContext video_context;
+  static constexpr int output_width = 1024;
+  static constexpr int output_height = 768;
+
+  VulkanContext vulkan;
+  vk::raii::Sampler sampler;
+  vk::raii::CommandBuffer command_buffer;
+  vk::raii::CommandPool command_pool;
+
+  Buffer output_transfer_buffer;
+  Image output_image;
+  vk::raii::ImageView output_image_view;
+
+  std::optional<Buffer> input_transfer_buffer;
+  std::optional<Image> input_image;
+  std::optional<vk::raii::ImageView> input_image_view;
+
+  struct Compute;
+  std::unique_ptr<Compute> compute;
 
   struct Editor;
   int editor_w{1024};
@@ -108,8 +126,9 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   PatchData data;
 
   std::vector<ParameterInfo> parameters;
-
   std::optional<std::string> recompile_shaders();
+
+  std::mutex video_mutex;
 
 public:
   static constexpr int num_programs = 0;
