@@ -402,6 +402,16 @@ OglerVst::video_process_frame(std::span<const double> parms,
                                      vk::ImageLayout::eGeneral,
                                      *output_transfer_buffer.buffer, {region});
   }
+  {
+    vk::ImageMemoryBarrier img_mem_barrier(
+        vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eHostRead,
+        vk::ImageLayout::eGeneral, vk::ImageLayout::eGeneral,
+        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, *output_image.image,
+        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+    command_buffer.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
+                                   vk::PipelineStageFlagBits::eHost, {}, {}, {},
+                                   {img_mem_barrier});
+  }
   command_buffer.end();
 
   vk::SubmitInfo SubmitInfo(0,                 // Num Wait Semaphores
