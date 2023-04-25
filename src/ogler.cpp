@@ -185,7 +185,6 @@ layout(binding = 1, rgba8) uniform writeonly image2D oChannel;)",
                              R"(void main() {
     vec4 fragColor;
     mainImage(fragColor, vec2(gl_GlobalInvocationID));
-    ivec2 coords = ivec2(gl_GlobalInvocationID.x, gl_NumWorkGroups.y - gl_GlobalInvocationID.y);
     imageStore(oChannel, ivec2(gl_GlobalInvocationID), fragColor);
 })"});
   if (std::holds_alternative<std::string>(res)) {
