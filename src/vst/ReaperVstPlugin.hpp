@@ -27,6 +27,7 @@
 #include <video_processor.h>
 
 #include <array>
+#include <cassert>
 #include <fstream>
 #include <memory>
 #include <optional>

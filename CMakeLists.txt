@@ -38,6 +38,7 @@ FetchContent_Declare(
     USES_TERMINAL_DOWNLOAD TRUE
 )
 
+set(SKIP_GLSLANG_INSTALL TRUE CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(reaper-sdk wdl scintilla glslang)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
