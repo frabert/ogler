@@ -17,6 +17,8 @@
 */
 
 #include "vulkan_context.hpp"
+#include <vulkan/vulkan_enums.hpp>
+#include <vulkan/vulkan_structs.hpp>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -61,7 +63,8 @@ static vk::raii::Device init_device(vk::raii::PhysicalDevice &phys_device,
 
 static vk::raii::CommandPool create_command_pool(vk::raii::Device &device,
                                                  uint32_t queue_family_index) {
-  vk::CommandPoolCreateInfo pool_create_info({}, queue_family_index);
+  vk::CommandPoolCreateInfo pool_create_info(
+      vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queue_family_index);
   return vk::raii::CommandPool(device, pool_create_info);
 }
 
@@ -169,7 +172,8 @@ vk::raii::Pipeline VulkanContext::create_compute_pipeline(
 }
 
 vk::raii::CommandPool VulkanContext::create_compute_command_pool() {
-  vk::CommandPoolCreateInfo create_info({}, queue_family_index);
+  vk::CommandPoolCreateInfo create_info(
+      vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queue_family_index);
   return device.createCommandPool(create_info);
 }
 

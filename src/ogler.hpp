@@ -105,7 +105,8 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   VulkanContext vulkan;
   vk::raii::Sampler sampler;
   vk::raii::CommandBuffer command_buffer;
-  vk::raii::CommandPool command_pool;
+  vk::raii::Queue queue;
+  vk::raii::Fence fence;
 
   Buffer output_transfer_buffer;
   Image output_image;
@@ -117,6 +118,8 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
 
   struct Compute;
   std::unique_ptr<Compute> compute;
+
+  IVideoFrame *output_frame{};
 
   struct Editor;
   int editor_w{1024};
