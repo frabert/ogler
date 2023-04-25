@@ -4,6 +4,8 @@ Ogler is a VST for REAPER that allows writing video (and audio?) effects using G
 
 ## Compiling
 
+You will need LunarG's Vulkan SDK installed and reachable by CMake.
+
 Use vcpkg for the smoothest experience:
 
     git clone https://github.com/frabert/ogler
@@ -16,4 +18,4 @@ vcpkg and cmake should take care of all the dependencies by themselves.
 
 You'll need modern graphics drivers.
 
-And by modern I mean they need to support OpenGL 4.6, so not _that_ modern, but still.
+And by modern I mean they need to support Vulkan 1.0, so not _that_ modern, but still.
