@@ -360,6 +360,24 @@ OglerVst::video_process_frame(std::span<const double> parms,
                                      vk::ImageLayout::eTransferDstOptimal,
                                      vk::ImageLayout::eShaderReadOnlyOptimal);
     }
+  } else if (!input_image || input_image->width * input_image->height != 1) {
+    input_image = vulkan.create_image(1, 1, vk::Format::eB8G8R8A8Unorm,
+                                      vk::ImageTiling::eOptimal,
+                                      vk::ImageUsageFlagBits::eSampled |
+                                          vk::ImageUsageFlagBits::eTransferDst);
+    input_transfer_buffer = vulkan.create_buffer(
+        {}, 1 * 1 * 4, vk::BufferUsageFlagBits::eTransferSrc,
+        vk::SharingMode::eExclusive,
+        vk::MemoryPropertyFlagBits::eHostVisible |
+            vk::MemoryPropertyFlagBits::eHostCoherent);
+    input_image_view =
+        vulkan.create_image_view(*input_image, vk::Format::eB8G8R8A8Unorm);
+    transition_image_layout_upload(command_buffer, *input_image,
+                                   vk::ImageLayout::eUndefined,
+                                   vk::ImageLayout::eTransferDstOptimal);
+    transition_image_layout_upload(command_buffer, *input_image,
+                                   vk::ImageLayout::eTransferDstOptimal,
+                                   vk::ImageLayout::eShaderReadOnlyOptimal);
   }
 
   {
@@ -369,16 +387,13 @@ OglerVst::video_process_frame(std::span<const double> parms,
                                               vk::ImageLayout::eGeneral);
 
     std ::vector<vk::WriteDescriptorSet> write_descriptor_sets = {
+        vk::WriteDescriptorSet(*compute->descriptor_set, 0, 0, 1,
+                               vk::DescriptorType::eCombinedImageSampler,
+                               &input_image_info, nullptr, nullptr),
         vk::WriteDescriptorSet(*compute->descriptor_set, 1, 0, 1,
                                vk::DescriptorType::eStorageImage,
                                &output_image_info, nullptr, nullptr),
     };
-    if (input_image) {
-      write_descriptor_sets.push_back(
-          vk::WriteDescriptorSet(*compute->descriptor_set, 0, 0, 1,
-                                 vk::DescriptorType::eCombinedImageSampler,
-                                 &input_image_info, nullptr, nullptr));
-    }
     vulkan.device.updateDescriptorSets(write_descriptor_sets, {});
   }
 
