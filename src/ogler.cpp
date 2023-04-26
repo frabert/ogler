@@ -426,10 +426,10 @@ OglerVst::video_process_frame(std::span<const double> parms,
 
   {
     MemoryMap map(output_transfer_buffer.memory, 0,
-                  input_image->width * output_image.height * 4);
-    transfer_image(static_cast<char *>(map.ptr), input_image->width * 4,
+                  output_transfer_buffer.size);
+    transfer_image(static_cast<char *>(map.ptr), output_image.width * 4,
                    output_frame->get_bits(), output_frame->get_rowspan(),
-                   output_width, output_height);
+                   output_image.width, output_image.height);
   }
 
   vulkan.device.resetFences({*fence});
