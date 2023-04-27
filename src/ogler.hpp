@@ -139,7 +139,8 @@ public:
   static constexpr int num_inputs = 2;
   static constexpr int num_outputs = 2;
   static constexpr int flags = vst::AEffectFlags::EffectCanReplacing |
-                               vst::AEffectFlags::EffectHasEditor;
+                               vst::AEffectFlags::EffectHasEditor |
+                               vst::AEffectFlags::EffectProgramChunks;
   static constexpr int unique_id = 0xFB000001;
   static constexpr int version = 1000;
 
