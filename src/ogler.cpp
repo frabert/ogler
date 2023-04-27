@@ -63,40 +63,59 @@ struct OglerVst::Compute {
 
   static vk::raii::DescriptorSetLayout
   create_descriptor_set_layout(VulkanContext &ctx) {
-    vk::DescriptorSetLayoutBinding input_texture;
-    input_texture.setBinding(0)
-        .setDescriptorCount(1)
-        .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-        .setStageFlags(vk::ShaderStageFlagBits::eCompute);
+    vk::DescriptorSetLayoutBinding input_texture{
+        .binding = 0,
+        .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eCompute,
+    };
 
-    vk::DescriptorSetLayoutBinding output_texture;
-    output_texture.setBinding(1)
-        .setDescriptorCount(1)
-        .setDescriptorType(vk::DescriptorType::eStorageImage)
-        .setStageFlags(vk::ShaderStageFlagBits::eCompute);
+    vk::DescriptorSetLayoutBinding output_texture{
+        .binding = 1,
+        .descriptorType = vk::DescriptorType::eStorageImage,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eCompute,
+    };
 
     std::vector<vk::DescriptorSetLayoutBinding> bindings = {input_texture,
                                                             output_texture};
-    vk::DescriptorSetLayoutCreateInfo layout_info;
-    layout_info.setBindings(bindings);
+    vk::DescriptorSetLayoutCreateInfo layout_info{
+        .bindingCount = static_cast<uint32_t>(bindings.size()),
+        .pBindings = bindings.data(),
+    };
 
     return ctx.device.createDescriptorSetLayout(layout_info);
   }
 
   static vk::raii::DescriptorPool create_descriptor_pool(VulkanContext &ctx) {
     std::vector<vk::DescriptorPoolSize> pool_sizes = {
-        vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1),
-        vk::DescriptorPoolSize(vk::DescriptorType::eStorageImage, 1)};
+        vk::DescriptorPoolSize{
+            .type = vk::DescriptorType::eCombinedImageSampler,
+            .descriptorCount = 1,
+        },
+        vk::DescriptorPoolSize{
+            .type = vk::DescriptorType::eStorageImage,
+            .descriptorCount = 1,
+        },
+    };
 
-    vk::DescriptorPoolCreateInfo create_info(
-        vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1, pool_sizes);
+    vk::DescriptorPoolCreateInfo create_info{
+        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+        .maxSets = 1,
+        .poolSizeCount = static_cast<uint32_t>(pool_sizes.size()),
+        .pPoolSizes = pool_sizes.data(),
+    };
     return ctx.device.createDescriptorPool(create_info);
   }
 
   static vk::raii::DescriptorSet
   create_descriptor_set(VulkanContext &ctx, vk::raii::DescriptorPool &pool,
                         vk::raii::DescriptorSetLayout &layout) {
-    vk::DescriptorSetAllocateInfo alloc_info(*pool, 1, &*layout);
+    vk::DescriptorSetAllocateInfo alloc_info{
+        .descriptorPool = *pool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &*layout,
+    };
     return std::move(ctx.device.allocateDescriptorSets(alloc_info).front());
   }
 
@@ -221,12 +240,17 @@ static void transition_image_layout_upload(vk::raii::CommandBuffer &cmd,
                                            Image &image,
                                            vk::ImageLayout old_layout,
                                            vk::ImageLayout new_layout) {
-  vk::ImageMemoryBarrier barrier;
-  barrier.setImage(*image.image);
-  barrier.setOldLayout(old_layout);
-  barrier.setNewLayout(new_layout);
-  barrier.setSubresourceRange(
-      vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+  vk::ImageMemoryBarrier barrier{
+      .oldLayout = old_layout,
+      .newLayout = new_layout,
+      .image = *image.image,
+      .subresourceRange =
+          {
+              .aspectMask = vk::ImageAspectFlagBits::eColor,
+              .levelCount = 1,
+              .layerCount = 1,
+          },
+  };
 
   vk::PipelineStageFlags sourceStage;
   vk::PipelineStageFlags destinationStage;
@@ -255,12 +279,17 @@ static void transition_image_layout_download(vk::raii::CommandBuffer &cmd,
   auto old_layout = vk::ImageLayout::eUndefined;
   auto new_layout = vk::ImageLayout::eGeneral;
 
-  vk::ImageMemoryBarrier barrier;
-  barrier.setImage(*image.image);
-  barrier.setOldLayout(old_layout);
-  barrier.setNewLayout(new_layout);
-  barrier.setSubresourceRange(
-      vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+  vk::ImageMemoryBarrier barrier{
+      .oldLayout = old_layout,
+      .newLayout = new_layout,
+      .image = *image.image,
+      .subresourceRange =
+          {
+              .aspectMask = vk::ImageAspectFlagBits::eColor,
+              .levelCount = 1,
+              .layerCount = 1,
+          },
+  };
 
   vk::PipelineStageFlags sourceStage;
   vk::PipelineStageFlags destinationStage;
@@ -330,8 +359,9 @@ OglerVst::video_process_frame(std::span<const double> parms,
   };
 
   {
-    vk::CommandBufferBeginInfo begin_info(
-        vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+    vk::CommandBufferBeginInfo begin_info{
+        .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+    };
     command_buffer.begin(begin_info);
   }
 
@@ -372,10 +402,22 @@ OglerVst::video_process_frame(std::span<const double> parms,
                                      vk::ImageLayout::eUndefined,
                                      vk::ImageLayout::eTransferDstOptimal);
 
-      vk::BufferImageCopy region(
-          0, 0, 0,
-          vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
-          vk::Offset3D(0, 0, 0), vk::Extent3D(input_w, input_h, 1));
+      vk::BufferImageCopy region{
+          .bufferOffset = 0,
+          .bufferRowLength = 0,
+          .bufferImageHeight = 0,
+          .imageSubresource =
+              {
+                  .aspectMask = vk::ImageAspectFlagBits::eColor,
+                  .layerCount = 1,
+              },
+          .imageExtent =
+              {
+                  .width = static_cast<uint32_t>(input_w),
+                  .height = static_cast<uint32_t>(input_h),
+                  .depth = 1,
+              },
+      };
       command_buffer.copyBufferToImage(
           *input_transfer_buffer->buffer, *input_image->image,
           vk::ImageLayout::eTransferDstOptimal, {region});
@@ -404,18 +446,32 @@ OglerVst::video_process_frame(std::span<const double> parms,
   }
 
   {
-    vk::DescriptorImageInfo input_image_info(
-        *sampler, **input_image_view, vk::ImageLayout::eShaderReadOnlyOptimal);
-    vk::DescriptorImageInfo output_image_info(*sampler, *output_image_view,
-                                              vk::ImageLayout::eGeneral);
+    vk::DescriptorImageInfo input_image_info{
+        .sampler = *sampler,
+        .imageView = **input_image_view,
+        .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+    };
+    vk::DescriptorImageInfo output_image_info{
+        .sampler = *sampler,
+        .imageView = *output_image_view,
+        .imageLayout = vk::ImageLayout::eGeneral,
+    };
 
     std ::vector<vk::WriteDescriptorSet> write_descriptor_sets = {
-        vk::WriteDescriptorSet(*compute->descriptor_set, 0, 0, 1,
-                               vk::DescriptorType::eCombinedImageSampler,
-                               &input_image_info, nullptr, nullptr),
-        vk::WriteDescriptorSet(*compute->descriptor_set, 1, 0, 1,
-                               vk::DescriptorType::eStorageImage,
-                               &output_image_info, nullptr, nullptr),
+        vk::WriteDescriptorSet{
+            .dstSet = *compute->descriptor_set,
+            .dstBinding = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+            .pImageInfo = &input_image_info,
+        },
+        vk::WriteDescriptorSet{
+            .dstSet = *compute->descriptor_set,
+            .dstBinding = 1,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eStorageImage,
+            .pImageInfo = &output_image_info,
+        },
     };
     vulkan.device.updateDescriptorSets(write_descriptor_sets, {});
   }
@@ -430,41 +486,62 @@ OglerVst::video_process_frame(std::span<const double> parms,
                                       uniforms.values);
   command_buffer.dispatch(output_width, output_height, 1);
   {
-    vk::ImageMemoryBarrier img_mem_barrier(
-        vk::AccessFlagBits::eMemoryWrite, vk::AccessFlagBits::eTransferRead,
-        vk::ImageLayout::eGeneral, vk::ImageLayout::eGeneral,
-        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, *output_image.image,
-        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+    vk::ImageMemoryBarrier img_mem_barrier{
+        .srcAccessMask = vk::AccessFlagBits::eMemoryWrite,
+        .dstAccessMask = vk::AccessFlagBits::eTransferRead,
+        .oldLayout = vk::ImageLayout::eGeneral,
+        .newLayout = vk::ImageLayout::eGeneral,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = *output_image.image,
+        .subresourceRange =
+            {
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .levelCount = 1,
+                .layerCount = 1,
+            },
+    };
     command_buffer.pipelineBarrier(vk::PipelineStageFlagBits::eBottomOfPipe,
                                    vk::PipelineStageFlagBits::eTransfer, {}, {},
                                    {}, {img_mem_barrier});
   }
   {
-    vk::BufferImageCopy region(
-        0, 0, 0,
-        vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
-        vk::Offset3D(0, 0, 0),
-        vk::Extent3D(output_image.width, output_image.height, 1));
+    vk::BufferImageCopy region{
+        .imageSubresource =
+            {
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .layerCount = 1,
+            },
+        .imageExtent =
+            {
+                .width = static_cast<uint32_t>(output_image.width),
+                .height = static_cast<uint32_t>(output_image.height),
+                .depth = 1,
+            },
+    };
     command_buffer.copyImageToBuffer(*output_image.image,
                                      vk::ImageLayout::eGeneral,
                                      *output_transfer_buffer.buffer, {region});
   }
   {
-    vk::BufferMemoryBarrier buf_mem_barrier(
-        vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eHostRead,
-        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-        *output_transfer_buffer.buffer, 0, VK_WHOLE_SIZE);
+    vk::BufferMemoryBarrier buf_mem_barrier{
+        .srcAccessMask = vk::AccessFlagBits::eTransferWrite,
+        .dstAccessMask = vk::AccessFlagBits::eHostRead,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = *output_transfer_buffer.buffer,
+        .size = VK_WHOLE_SIZE,
+    };
     command_buffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
                                    vk::PipelineStageFlagBits::eHost, {}, {},
                                    {buf_mem_barrier}, {});
   }
   command_buffer.end();
 
-  vk::SubmitInfo SubmitInfo(0,                 // Num Wait Semaphores
-                            nullptr,           // Wait Semaphores
-                            nullptr,           // Pipeline Stage Flags
-                            1,                 // Num Command Buffers
-                            &*command_buffer); // List of command buffers
+  vk::SubmitInfo SubmitInfo{
+      .commandBufferCount = 1,
+      .pCommandBuffers = &*command_buffer,
+  };
   queue.submit({SubmitInfo}, *fence);
   auto res = vulkan.device.waitForFences({*fence},      // List of fences
                                          true,          // Wait All
