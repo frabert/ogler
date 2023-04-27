@@ -147,158 +147,159 @@ public:
 public:
   VstPlugin(vst::HostCallback *hostcb)
       : hostcb(hostcb),
-        effect(
-            {.magic = Magic,
-             .dispatcher = [](AEffect *effect, PluginOpcode opcode,
-                              std::int32_t index, std::intptr_t value,
-                              void *ptr, float opt) -> std::intptr_t {
-               auto plugin = static_cast<VstPlugin<T> *>(effect->object);
-               switch (opcode) {
-               case PluginOpcode::Open:
-                 plugin->init();
-                 break;
-               case PluginOpcode::Close:
-                 delete plugin;
-                 break;
-               case PluginOpcode::SetProgram:
-                 plugin->change_preset(value);
-                 break;
-               case PluginOpcode::GetProgram:
-                 return plugin->get_preset_index();
-               case PluginOpcode::SetProgramName:
-                 plugin->set_preset_name(static_cast<const char *>(ptr));
-                 break;
-               case PluginOpcode::GetProgramName: {
-                 auto str = plugin->get_preset_name();
-                 memcpy_s(ptr, MaxParamStrLen, str.data(), str.size());
-                 return 1;
-               }
-               case PluginOpcode::GetParamLabel: {
-                 auto str = plugin->get_parameter_label(index);
-                 memcpy_s(ptr, MaxParamStrLen, str.data(), str.size());
-                 return 1;
-               }
-               case PluginOpcode::GetParamDisplay: {
-                 auto str = plugin->get_parameter_text(index);
-                 memcpy_s(ptr, MaxParamStrLen, str.data(), str.size());
-                 return 1;
-               }
-               case PluginOpcode::GetParamName: {
-                 auto str = plugin->get_parameter_name(index);
-                 memcpy_s(ptr, MaxParamStrLen, str.data(), str.size());
-                 return 1;
-               }
-               case PluginOpcode::CanBeAutomated:
-                 return plugin->can_be_automated(index);
-               case PluginOpcode::SetSampleRate:
-                 plugin->set_sample_rate(opt);
-                 break;
-               case PluginOpcode::SetBlockSize:
-                 plugin->set_block_size(value);
-                 break;
-               case PluginOpcode::MainsChanged:
-                 if (value) {
-                   plugin->resume();
-                 } else {
-                   plugin->suspend();
-                 }
-                 break;
-               case PluginOpcode::GetEffectName: {
-                 auto str = plugin->get_effect_name();
-                 memcpy_s(ptr, MaxVendorStrLen, str.data(), str.size());
-                 return 1;
-               }
-               case PluginOpcode::GetVendorString: {
-                 auto str = plugin->get_vendor_name();
-                 memcpy_s(ptr, MaxVendorStrLen, str.data(), str.size());
-                 return 1;
-               }
-               case PluginOpcode::GetProductString: {
-                 auto str = plugin->get_product_name();
-                 memcpy_s(ptr, MaxVendorStrLen, str.data(), str.size());
-                 return 1;
-               }
-               case PluginOpcode::GetVendorVersion:
-                 return plugin->get_vendor_version();
-               case PluginOpcode::CanDo:
-                 return static_cast<std::intptr_t>(
-                     plugin->can_do(static_cast<const char *>(ptr)));
-               case PluginOpcode::GetTailSize: {
-                 auto tailSize = plugin->get_tail_size();
-                 return tailSize ? tailSize : 1;
-               }
-               case PluginOpcode::GetVstVersion:
-                 return 2400;
-               case PluginOpcode::GetPlugCategory:
-                 return static_cast<std::intptr_t>(plugin->get_category());
-               case PluginOpcode::EditGetRect: {
-                 plugin->get_editor_bounds(
-                     plugin->edit_rect.top, plugin->edit_rect.left,
-                     plugin->edit_rect.bottom, plugin->edit_rect.right);
-                 auto dest = static_cast<vst::Rectangle **>(ptr);
-                 *dest = &plugin->edit_rect;
+        effect({
+            .magic = Magic,
+            .dispatcher = [](AEffect *effect, PluginOpcode opcode,
+                             std::int32_t index, std::intptr_t value, void *ptr,
+                             float opt) -> std::intptr_t {
+              auto plugin = static_cast<VstPlugin<T> *>(effect->object);
+              switch (opcode) {
+              case PluginOpcode::Open:
+                plugin->init();
+                break;
+              case PluginOpcode::Close:
+                delete plugin;
+                break;
+              case PluginOpcode::SetProgram:
+                plugin->change_preset(value);
+                break;
+              case PluginOpcode::GetProgram:
+                return plugin->get_preset_index();
+              case PluginOpcode::SetProgramName:
+                plugin->set_preset_name(static_cast<const char *>(ptr));
+                break;
+              case PluginOpcode::GetProgramName: {
+                auto str = plugin->get_preset_name();
+                memcpy_s(ptr, MaxParamStrLen, str.data(), str.size());
+                return 1;
+              }
+              case PluginOpcode::GetParamLabel: {
+                auto str = plugin->get_parameter_label(index);
+                memcpy_s(ptr, MaxParamStrLen, str.data(), str.size());
+                return 1;
+              }
+              case PluginOpcode::GetParamDisplay: {
+                auto str = plugin->get_parameter_text(index);
+                memcpy_s(ptr, MaxParamStrLen, str.data(), str.size());
+                return 1;
+              }
+              case PluginOpcode::GetParamName: {
+                auto str = plugin->get_parameter_name(index);
+                memcpy_s(ptr, MaxParamStrLen, str.data(), str.size());
+                return 1;
+              }
+              case PluginOpcode::CanBeAutomated:
+                return plugin->can_be_automated(index);
+              case PluginOpcode::SetSampleRate:
+                plugin->set_sample_rate(opt);
+                break;
+              case PluginOpcode::SetBlockSize:
+                plugin->set_block_size(value);
+                break;
+              case PluginOpcode::MainsChanged:
+                if (value) {
+                  plugin->resume();
+                } else {
+                  plugin->suspend();
+                }
+                break;
+              case PluginOpcode::GetEffectName: {
+                auto str = plugin->get_effect_name();
+                memcpy_s(ptr, MaxVendorStrLen, str.data(), str.size());
+                return 1;
+              }
+              case PluginOpcode::GetVendorString: {
+                auto str = plugin->get_vendor_name();
+                memcpy_s(ptr, MaxVendorStrLen, str.data(), str.size());
+                return 1;
+              }
+              case PluginOpcode::GetProductString: {
+                auto str = plugin->get_product_name();
+                memcpy_s(ptr, MaxVendorStrLen, str.data(), str.size());
+                return 1;
+              }
+              case PluginOpcode::GetVendorVersion:
+                return plugin->get_vendor_version();
+              case PluginOpcode::CanDo:
+                return static_cast<std::intptr_t>(
+                    plugin->can_do(static_cast<const char *>(ptr)));
+              case PluginOpcode::GetTailSize: {
+                auto tailSize = plugin->get_tail_size();
+                return tailSize ? tailSize : 1;
+              }
+              case PluginOpcode::GetVstVersion:
+                return 2400;
+              case PluginOpcode::GetPlugCategory:
+                return static_cast<std::intptr_t>(plugin->get_category());
+              case PluginOpcode::EditGetRect: {
+                plugin->get_editor_bounds(
+                    plugin->edit_rect.top, plugin->edit_rect.left,
+                    plugin->edit_rect.bottom, plugin->edit_rect.right);
+                auto dest = static_cast<vst::Rectangle **>(ptr);
+                *dest = &plugin->edit_rect;
 
-                 return 1;
-               }
-               case PluginOpcode::EditOpen:
-                 plugin->open_editor(ptr);
-                 break;
-               case PluginOpcode::EditClose:
-                 plugin->close_editor();
-                 break;
-               case PluginOpcode::EditIdle:
-                 plugin->editor_idle();
-                 break;
-               case PluginOpcode::GetChunk: {
-                 std::stringstream stream;
-                 if (index) {
-                   plugin->save_preset_data(stream);
-                 } else {
-                   plugin->save_bank_data(stream);
-                 }
+                return 1;
+              }
+              case PluginOpcode::EditOpen:
+                plugin->open_editor(ptr);
+                break;
+              case PluginOpcode::EditClose:
+                plugin->close_editor();
+                break;
+              case PluginOpcode::EditIdle:
+                plugin->editor_idle();
+                break;
+              case PluginOpcode::GetChunk: {
+                std::stringstream stream;
+                if (index) {
+                  plugin->save_preset_data(stream);
+                } else {
+                  plugin->save_bank_data(stream);
+                }
 
-                 plugin->chunkdata = stream.str();
-                 const char **addr = static_cast<const char **>(ptr);
-                 *addr = plugin->chunkdata.data();
-                 return plugin->chunkdata.length();
-               }
-               case PluginOpcode::SetChunk: {
-                 std::stringstream stream(
-                     std::string(static_cast<char *>(ptr), value));
-                 if (index) {
-                   plugin->load_preset_data(stream);
-                 } else {
-                   plugin->load_bank_data(stream);
-                 }
-               } break;
-               default:
-                 break;
-               }
-               return 0;
-             },
-             .setParameter =
-                 [](AEffect *effect, std::int32_t index, float parameter) {
-                   static_cast<VstPlugin *>(effect->object)
-                       ->set_parameter(index, parameter);
-                 },
-             .getParameter = [](AEffect *effect, std::int32_t index) -> float {
-               return static_cast<VstPlugin *>(effect->object)
-                   ->get_parameter(index);
-             },
-             .numPrograms = T::num_programs,
-             .numParams = T::num_params,
-             .numInputs = T::num_inputs,
-             .numOutputs = T::num_outputs,
-             .flags = T::flags,
-             .object = this,
-             .uniqueID = T::unique_id,
-             .version = T::version,
-             .processReplacing = [](AEffect *effect, float **inputs,
-                                    float **outputs,
-                                    std::int32_t sampleFrames) {},
-             .processDoubleReplacing = [](AEffect *effect, double **inputs,
-                                          double **outputs,
-                                          std::int32_t sampleFrames) {}}) {}
+                plugin->chunkdata = stream.str();
+                const char **addr = static_cast<const char **>(ptr);
+                *addr = plugin->chunkdata.data();
+                return plugin->chunkdata.length();
+              }
+              case PluginOpcode::SetChunk: {
+                std::stringstream stream(
+                    std::string(static_cast<char *>(ptr), value));
+                if (index) {
+                  plugin->load_preset_data(stream);
+                } else {
+                  plugin->load_bank_data(stream);
+                }
+              } break;
+              default:
+                break;
+              }
+              return 0;
+            },
+            .setParameter =
+                [](AEffect *effect, std::int32_t index, float parameter) {
+                  static_cast<VstPlugin *>(effect->object)
+                      ->set_parameter(index, parameter);
+                },
+            .getParameter = [](AEffect *effect, std::int32_t index) -> float {
+              return static_cast<VstPlugin *>(effect->object)
+                  ->get_parameter(index);
+            },
+            .numPrograms = T::num_programs,
+            .numParams = T::num_params,
+            .numInputs = T::num_inputs,
+            .numOutputs = T::num_outputs,
+            .flags = T::flags,
+            .object = this,
+            .uniqueID = T::unique_id,
+            .version = T::version,
+            .processReplacing = [](AEffect *effect, float **inputs,
+                                   float **outputs,
+                                   std::int32_t sampleFrames) {},
+            .processDoubleReplacing = [](AEffect *effect, double **inputs,
+                                         double **outputs,
+                                         std::int32_t sampleFrames) {},
+        }) {}
   virtual ~VstPlugin() = default;
 };
 } // namespace vst
