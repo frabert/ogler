@@ -111,7 +111,7 @@ protected:
 
   void adjust_params_num(int start_idx, int num) noexcept {
     int list[] = {start_idx, num};
-    this->hostcb(get_effect(), HostOpcodes::VendorSpecific, 0xdeadbeef,
+    this->hostcb(this->get_effect(), HostOpcodes::VendorSpecific, 0xdeadbeef,
                  HostOpcodes::Automate, list, 0);
   }
 
