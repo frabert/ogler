@@ -215,16 +215,6 @@ layout(binding = 1, rgba8) uniform writeonly image2D oChannel;)",
   return {};
 }
 
-template <int pixel_size = 4>
-static void transfer_image(const char *src, int src_stride, char *dst,
-                           int dst_stride, int width, int height) {
-  for (int i = 0; i < height; ++i) {
-    std::copy(src, src + width * pixel_size, dst);
-    src += src_stride;
-    dst += dst_stride;
-  }
-}
-
 struct MemoryMap {
   vk::raii::DeviceMemory &mem;
   std::span<char> ptr;
@@ -309,18 +299,15 @@ static std::span<char> get_frame_bits(IVideoFrame *frame) {
 }
 
 template <size_t pixel_size = 4>
-static void copy_image(std::span<char> src, std::span<char> dst, size_t w,
-                       size_t h, size_t src_stride, size_t dst_stride) {
-  size_t a = 0;
-  size_t b = 0;
+static void copy_image(std::span<char> src_span, std::span<char> dst_span,
+                       size_t w, size_t h, size_t src_stride,
+                       size_t dst_stride) {
+  char *src = src_span.data();
+  char *dst = dst_span.data();
   for (size_t i = 0; i < h; ++i) {
-    for (size_t j = 0; j < w; ++j) {
-      for (size_t k = 0; k < pixel_size; ++k) {
-        dst[b + j * pixel_size + k] = src[a + j * pixel_size + k];
-      }
-    }
-    a += src_stride;
-    b += dst_stride;
+    std::memcpy(dst, src, w * pixel_size);
+    src += src_stride;
+    dst += dst_stride;
   }
 }
 
@@ -333,9 +320,6 @@ OglerVst::video_process_frame(std::span<const double> parms,
     return nullptr;
   }
 
-  if (output_frame) {
-    output_frame->Release();
-  }
   output_frame =
       new_video_frame(output_width, output_height, vst::FrameFormat::RGBA);
   auto output_rowspan = output_frame->get_rowspan();
