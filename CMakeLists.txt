@@ -41,8 +41,6 @@ FetchContent_Declare(
 set(SKIP_GLSLANG_INSTALL TRUE CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(reaper-sdk wdl scintilla glslang)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-
 add_library(scintilla STATIC
     "${scintilla_SOURCE_DIR}/src/AutoComplete.cxx"
     "${scintilla_SOURCE_DIR}/src/CallTip.cxx"
@@ -115,7 +113,16 @@ target_compile_definitions(ogler
     OGLER_VER_MINOR=${OGLER_VER_MINOR}
     OGLER_VER_REV=${OGLER_VER_REV}
     OGLER_VULKAN_VER=${OGLER_VULKAN_VER})
-target_link_libraries(ogler PRIVATE Vulkan::Vulkan Vulkan::Headers reaper_sdk scintilla ComCtl32 nlohmann_json::nlohmann_json glslang SPIRV)
+target_link_libraries(ogler
+    PRIVATE
+    Vulkan::Vulkan
+    Vulkan::Headers
+    reaper_sdk
+    scintilla
+    ComCtl32
+    nlohmann_json::nlohmann_json
+    glslang
+    SPIRV)
 
 install(
     TARGETS ogler
