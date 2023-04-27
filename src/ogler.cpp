@@ -33,6 +33,8 @@
 
 namespace ogler {
 
+static constexpr vk::Format RGBAFormat = vk::Format::eB8G8R8A8Unorm;
+
 struct Uniforms {
   float iResolution_w, iResolution_h;
   float iTime;
@@ -111,8 +113,6 @@ struct OglerVst::Compute {
                                              pipeline_cache)) {}
 };
 
-static constexpr int AlignTo4(int x) { return (x + 3) & 0xFFFFFFFC; }
-
 OglerVst::OglerVst(vst::HostCallback *hostcb)
     : vst::ReaperVstPlugin<OglerVst>(hostcb), sampler(vulkan.create_sampler()),
       command_buffer(vulkan.create_command_buffer()),
@@ -123,12 +123,10 @@ OglerVst::OglerVst(vst::HostCallback *hostcb)
           vk::MemoryPropertyFlagBits::eHostVisible |
               vk::MemoryPropertyFlagBits::eHostCoherent)),
       output_image(vulkan.create_image(
-          output_width, output_height, vk::Format::eB8G8R8A8Unorm,
-          vk::ImageTiling::eOptimal,
+          output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
           vk::ImageUsageFlagBits::eStorage |
               vk::ImageUsageFlagBits::eTransferSrc)),
-      output_image_view(
-          vulkan.create_image_view(output_image, vk::Format::eB8G8R8A8Unorm)) {
+      output_image_view(vulkan.create_image_view(output_image, RGBAFormat)) {
   if (auto err = recompile_shaders()) {
     DBG << *err << '\n';
   }
@@ -210,9 +208,10 @@ static void transfer_image(const char *src, int src_stride, char *dst,
 
 struct MemoryMap {
   vk::raii::DeviceMemory &mem;
-  void *ptr;
+  std::span<char> ptr;
   MemoryMap(vk::raii::DeviceMemory &mem, int offset, int size) : mem(mem) {
-    ptr = mem.mapMemory(offset, size);
+    ptr =
+        std::span<char>(static_cast<char *>(mem.mapMemory(offset, size)), size);
   }
 
   ~MemoryMap() { mem.unmapMemory(); }
@@ -275,6 +274,27 @@ static void transition_image_layout_download(vk::raii::CommandBuffer &cmd,
   cmd.pipelineBarrier(sourceStage, destinationStage, {}, {}, {}, {barrier});
 }
 
+static std::span<char> get_frame_bits(IVideoFrame *frame) {
+  return std::span<char>(frame->get_bits(),
+                         frame->get_rowspan() * frame->get_h());
+}
+
+template <size_t pixel_size = 4>
+static void copy_image(std::span<char> src, std::span<char> dst, size_t w,
+                       size_t h, size_t src_stride, size_t dst_stride) {
+  size_t a = 0;
+  size_t b = 0;
+  for (size_t i = 0; i < h; ++i) {
+    for (size_t j = 0; j < w; ++j) {
+      for (size_t k = 0; k < pixel_size; ++k) {
+        dst[b + j * pixel_size + k] = src[a + j * pixel_size + k];
+      }
+    }
+    a += src_stride;
+    b += dst_stride;
+  }
+}
+
 IVideoFrame *
 OglerVst::video_process_frame(std::span<const double> parms,
                               double project_time, double framerate,
@@ -284,10 +304,16 @@ OglerVst::video_process_frame(std::span<const double> parms,
     return nullptr;
   }
 
-  if (!output_frame) {
-    output_frame =
-        new_video_frame(output_width, output_height, vst::FrameFormat::RGBA);
+  if (output_frame) {
+    output_frame->Release();
   }
+  output_frame =
+      new_video_frame(output_width, output_height, vst::FrameFormat::RGBA);
+  auto output_rowspan = output_frame->get_rowspan();
+  auto output_w = output_frame->get_w();
+  auto output_h = output_frame->get_h();
+  assert(output_w == output_width);
+  assert(output_h == output_height);
 
   UniformsView uniforms{
       .data =
@@ -316,30 +342,29 @@ OglerVst::video_process_frame(std::span<const double> parms,
     auto input_frame = get_video_input(0, vst::FrameFormat::RGBA);
     auto input_w = input_frame->get_w();
     auto input_h = input_frame->get_h();
+    auto input_rowspan = input_frame->get_rowspan();
+    auto input_bits = get_frame_bits(input_frame);
     uniforms.data.iChannelResolution_w = input_w;
     uniforms.data.iChannelResolution_h = input_h;
     if (!input_image || input_w != input_image->width ||
         input_h != input_image->height) {
-      input_image =
-          vulkan.create_image(input_w, input_h, vk::Format::eB8G8R8A8Unorm,
-                              vk::ImageTiling::eOptimal,
-                              vk::ImageUsageFlagBits::eSampled |
-                                  vk::ImageUsageFlagBits::eTransferDst);
+      input_image = vulkan.create_image(
+          input_w, input_h, RGBAFormat, vk::ImageTiling::eOptimal,
+          vk::ImageUsageFlagBits::eSampled |
+              vk::ImageUsageFlagBits::eTransferDst);
       input_transfer_buffer = vulkan.create_buffer(
           {}, input_w * input_h * 4, vk::BufferUsageFlagBits::eTransferSrc,
           vk::SharingMode::eExclusive,
           vk::MemoryPropertyFlagBits::eHostVisible |
               vk::MemoryPropertyFlagBits::eHostCoherent);
-      input_image_view =
-          vulkan.create_image_view(*input_image, vk::Format::eB8G8R8A8Unorm);
+      input_image_view = vulkan.create_image_view(*input_image, RGBAFormat);
     }
 
     {
       MemoryMap map(input_transfer_buffer->memory, 0,
                     input_transfer_buffer->size);
-      transfer_image(input_frame->get_bits(), input_frame->get_rowspan(),
-                     static_cast<char *>(map.ptr), input_w * 4, input_w,
-                     input_h);
+      copy_image(input_bits, map.ptr, input_w, input_h, input_rowspan,
+                 input_w * 4);
     }
 
     {
@@ -350,8 +375,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
       vk::BufferImageCopy region(
           0, 0, 0,
           vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
-          vk::Offset3D(0, 0, 0),
-          vk::Extent3D(input_image->width, input_image->height, 1));
+          vk::Offset3D(0, 0, 0), vk::Extent3D(input_w, input_h, 1));
       command_buffer.copyBufferToImage(
           *input_transfer_buffer->buffer, *input_image->image,
           vk::ImageLayout::eTransferDstOptimal, {region});
@@ -361,17 +385,16 @@ OglerVst::video_process_frame(std::span<const double> parms,
                                      vk::ImageLayout::eShaderReadOnlyOptimal);
     }
   } else if (!input_image || input_image->width * input_image->height != 1) {
-    input_image = vulkan.create_image(1, 1, vk::Format::eB8G8R8A8Unorm,
-                                      vk::ImageTiling::eOptimal,
-                                      vk::ImageUsageFlagBits::eSampled |
-                                          vk::ImageUsageFlagBits::eTransferDst);
+    input_image =
+        vulkan.create_image(1, 1, RGBAFormat, vk::ImageTiling::eOptimal,
+                            vk::ImageUsageFlagBits::eSampled |
+                                vk::ImageUsageFlagBits::eTransferDst);
     input_transfer_buffer = vulkan.create_buffer(
         {}, 1 * 1 * 4, vk::BufferUsageFlagBits::eTransferSrc,
         vk::SharingMode::eExclusive,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent);
-    input_image_view =
-        vulkan.create_image_view(*input_image, vk::Format::eB8G8R8A8Unorm);
+    input_image_view = vulkan.create_image_view(*input_image, RGBAFormat);
     transition_image_layout_upload(command_buffer, *input_image,
                                    vk::ImageLayout::eUndefined,
                                    vk::ImageLayout::eTransferDstOptimal);
@@ -407,6 +430,16 @@ OglerVst::video_process_frame(std::span<const double> parms,
                                       uniforms.values);
   command_buffer.dispatch(output_width, output_height, 1);
   {
+    vk::ImageMemoryBarrier img_mem_barrier(
+        vk::AccessFlagBits::eMemoryWrite, vk::AccessFlagBits::eTransferRead,
+        vk::ImageLayout::eGeneral, vk::ImageLayout::eGeneral,
+        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, *output_image.image,
+        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+    command_buffer.pipelineBarrier(vk::PipelineStageFlagBits::eBottomOfPipe,
+                                   vk::PipelineStageFlagBits::eTransfer, {}, {},
+                                   {}, {img_mem_barrier});
+  }
+  {
     vk::BufferImageCopy region(
         0, 0, 0,
         vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
@@ -417,14 +450,13 @@ OglerVst::video_process_frame(std::span<const double> parms,
                                      *output_transfer_buffer.buffer, {region});
   }
   {
-    vk::ImageMemoryBarrier img_mem_barrier(
-        vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eHostRead,
-        vk::ImageLayout::eGeneral, vk::ImageLayout::eGeneral,
-        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, *output_image.image,
-        vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
-    command_buffer.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
-                                   vk::PipelineStageFlagBits::eHost, {}, {}, {},
-                                   {img_mem_barrier});
+    vk::BufferMemoryBarrier buf_mem_barrier(
+        vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eHostRead,
+        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+        *output_transfer_buffer.buffer, 0, VK_WHOLE_SIZE);
+    command_buffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer,
+                                   vk::PipelineStageFlagBits::eHost, {}, {},
+                                   {buf_mem_barrier}, {});
   }
   command_buffer.end();
 
@@ -442,9 +474,9 @@ OglerVst::video_process_frame(std::span<const double> parms,
   {
     MemoryMap map(output_transfer_buffer.memory, 0,
                   output_transfer_buffer.size);
-    transfer_image(static_cast<char *>(map.ptr), output_image.width * 4,
-                   output_frame->get_bits(), output_frame->get_rowspan(),
-                   output_image.width, output_image.height);
+    auto output_bits = get_frame_bits(output_frame);
+    copy_image(map.ptr, output_bits, output_w, output_h, output_w * 4,
+               output_rowspan);
   }
 
   vulkan.device.resetFences({*fence});
