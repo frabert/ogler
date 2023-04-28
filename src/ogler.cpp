@@ -78,8 +78,18 @@ struct OglerVst::Compute {
         .stageFlags = vk::ShaderStageFlagBits::eCompute,
     };
 
-    std::vector<vk::DescriptorSetLayoutBinding> bindings = {input_texture,
-                                                            output_texture};
+    vk::DescriptorSetLayoutBinding params{
+        .binding = 2,
+        .descriptorType = vk::DescriptorType::eUniformBuffer,
+        .descriptorCount = 1,
+        .stageFlags = vk::ShaderStageFlagBits::eCompute,
+    };
+
+    std::vector<vk::DescriptorSetLayoutBinding> bindings = {
+        input_texture,
+        output_texture,
+        params,
+    };
     vk::DescriptorSetLayoutCreateInfo layout_info{
         .bindingCount = static_cast<uint32_t>(bindings.size()),
         .pBindings = bindings.data(),
@@ -96,6 +106,10 @@ struct OglerVst::Compute {
         },
         vk::DescriptorPoolSize{
             .type = vk::DescriptorType::eStorageImage,
+            .descriptorCount = 1,
+        },
+        vk::DescriptorPoolSize{
+            .type = vk::DescriptorType::eUniformBuffer,
             .descriptorCount = 1,
         },
     };
@@ -223,18 +237,32 @@ layout(binding = 1, rgba8) uniform writeonly image2D oChannel;)",
 
   compute = std::make_unique<Compute>(vulkan, data.spirv_code);
   get_effect()->numParams = parameters.size();
-  this->adjust_params_num(0, -old_num);
-  this->adjust_params_num(0, parameters.size());
+  if (old_num != parameters.size()) {
+    this->adjust_params_num(0, -old_num);
+    this->adjust_params_num(0, parameters.size());
+
+    if (parameters.size()) {
+      auto buf_size = sizeof(float) * parameters.size();
+      params_buffer = vulkan.create_buffer(
+          {}, buf_size, vk::BufferUsageFlagBits::eUniformBuffer,
+          vk::SharingMode::eExclusive,
+          vk::MemoryPropertyFlagBits::eHostCoherent |
+              vk::MemoryPropertyFlagBits::eHostVisible);
+    } else {
+      params_buffer = std::nullopt;
+    }
+  }
 
   return {};
 }
 
-struct MemoryMap {
+template <typename T = char> struct MemoryMap {
   vk::raii::DeviceMemory &mem;
-  std::span<char> ptr;
+  std::span<T> ptr;
   MemoryMap(vk::raii::DeviceMemory &mem, int offset, int size) : mem(mem) {
-    ptr =
-        std::span<char>(static_cast<char *>(mem.mapMemory(offset, size)), size);
+    ptr = std::span<T>(
+        static_cast<T *>(mem.mapMemory(offset * sizeof(T), size * sizeof(T))),
+        size);
   }
 
   ~MemoryMap() { mem.unmapMemory(); }
@@ -471,6 +499,28 @@ OglerVst::video_process_frame(std::span<const double> parms,
             .pImageInfo = &output_image_info,
         },
     };
+
+    if (params_buffer) {
+      {
+        MemoryMap<float> params_map(params_buffer->memory, 0, parms.size() - 1);
+        // keeping in mind parms[0] is iWet
+        for (size_t i = 0; i < parms.size() - 1; ++i) {
+          params_map.ptr[i] = parms[i + 1];
+        }
+      }
+      vk::DescriptorBufferInfo uniforms_info{
+          .buffer = *params_buffer->buffer,
+          .range = sizeof(float) * parameters.size(),
+      };
+      write_descriptor_sets.push_back(vk::WriteDescriptorSet{
+          .dstSet = *compute->descriptor_set,
+          .dstBinding = 2,
+          .descriptorCount = 1,
+          .descriptorType = vk::DescriptorType::eUniformBuffer,
+          .pBufferInfo = &uniforms_info,
+      });
+    }
+
     vulkan.device.updateDescriptorSets(write_descriptor_sets, {});
   }
 

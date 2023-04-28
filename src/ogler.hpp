@@ -105,6 +105,8 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   std::optional<Image> input_image;
   std::optional<vk::raii::ImageView> input_image_view;
 
+  std::optional<Buffer> params_buffer;
+
   struct Compute;
   std::unique_ptr<Compute> compute;
 
