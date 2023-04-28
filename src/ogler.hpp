@@ -87,17 +87,6 @@ struct PatchData {
   void serialize(std::ostream &);
 };
 
-struct ParameterInfo {
-  std::string display_name;
-  float default_value;
-  float minimum_val;
-  float maximum_val;
-  float medium_value;
-  float step_size;
-
-  float current_value;
-};
-
 class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   static constexpr int output_width = 1024;
   static constexpr int output_height = 768;
@@ -128,10 +117,14 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
 
   PatchData data;
 
-  std::vector<ParameterInfo> parameters;
+  struct Parameter;
+  std::vector<Parameter> parameters;
+  std::string param_text;
+
   std::optional<std::string> recompile_shaders();
 
   std::mutex video_mutex;
+  std::recursive_mutex params_mutex;
 
 public:
   static constexpr int num_programs = 0;
@@ -170,5 +163,16 @@ protected:
   void load_preset_data(std::istream &s) noexcept final;
   void save_bank_data(std::ostream &s) noexcept final;
   void load_bank_data(std::istream &s) noexcept final;
+
+  void set_parameter(std::int32_t index, float value) noexcept final;
+  float get_parameter(std::int32_t index) noexcept final;
+  int get_num_parameters() noexcept final;
+  void get_param_range(int index, double &min, double &max) final;
+  std::string_view get_parameter_label(int index) noexcept final;
+  std::string_view get_parameter_text(int index) noexcept final;
+  std::string_view get_parameter_name(int index) noexcept final;
+  bool can_be_automated(int index) noexcept final;
+  std::optional<vst::ParameterProperties>
+  get_parameter_properties(int index) noexcept final;
 };
 } // namespace ogler

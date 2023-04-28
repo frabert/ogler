@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 namespace vst {
@@ -231,8 +232,37 @@ enum class PluginCategory : std::int32_t {
   Generator
 };
 
+enum ParameterFlags {
+  ParameterIsSwitch = 1 << 0,
+  ParameterUsesIntegerMinMax = 1 << 1,
+  ParameterUsesFloatStep = 1 << 2,
+  ParameterUsesIntStep = 1 << 3,
+  ParameterSupportsDisplayIndex = 1 << 4,
+  ParameterSupportsDisplayCategory = 1 << 5,
+  ParameterCanRamp = 1 << 6
+};
+
+struct ParameterProperties {
+  float stepFloat;
+  float smallStepFloat;
+  float largeStepFloat;
+  std::array<char, MaxLabelLen> label;
+  ParameterFlags flags;
+  int32_t minInteger;
+  int32_t maxInteger;
+  int32_t stepInteger;
+  int32_t largeStepInteger;
+  std::array<char, MaxShortLabelLen> shortLabel;
+  int16_t displayIndex;
+  int16_t category;
+  int16_t numParametersInCategory;
+  int16_t reserved;
+  std::array<char, MaxCategLabelLen> categoryLabel;
+  std::array<char, 16> future;
+};
+
 struct AEffect {
-  std::int32_t magic;
+  std::int32_t magic = Magic;
   MasterCallback *dispatcher;
   [[deprecated]] ProcessProc *process;
   SetParameterProc *setParameter;

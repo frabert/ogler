@@ -95,14 +95,14 @@ protected:
     return Supported::No;
   }
 
-  virtual void get_param_range(double &min, double &max) {}
+  virtual void get_param_range(int index, double &min, double &max) {}
 
   std::intptr_t vendor_specific(std::int32_t index, std::intptr_t value,
                                 void *ptr, float opt) noexcept final {
     if (index == 0xdeadbef0 && ptr && value >= 0 &&
         value < get_num_parameters()) {
       auto range = static_cast<double *>(ptr);
-      get_param_range(range[0], range[1]);
+      get_param_range(value, range[0], range[1]);
       return 0xbeef;
     }
 
@@ -112,7 +112,7 @@ protected:
   void adjust_params_num(int start_idx, int num) noexcept {
     int list[] = {start_idx, num};
     this->hostcb(this->get_effect(), HostOpcodes::VendorSpecific, 0xdeadbeef,
-                 HostOpcodes::Automate, list, 0);
+                 static_cast<std::intptr_t>(HostOpcodes::Automate), list, 0);
   }
 
   virtual void init() noexcept override {

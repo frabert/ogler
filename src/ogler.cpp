@@ -19,6 +19,7 @@
 #include "ogler.hpp"
 #include "compile_shader.hpp"
 #include "ogler_editor.hpp"
+#include "ogler_params.hpp"
 
 #include <algorithm>
 #include <nlohmann/json.hpp>
@@ -184,6 +185,8 @@ void OglerVst::save_bank_data(std::ostream &s) noexcept { save_preset_data(s); }
 void OglerVst::load_bank_data(std::istream &s) noexcept { load_preset_data(s); }
 
 std::optional<std::string> OglerVst::recompile_shaders() {
+  std::unique_lock<std::recursive_mutex> lock(params_mutex);
+
   auto res = compile_shader({R"(#version 460
 
 layout(local_size_x = 1, local_size_y = 1) in;
@@ -208,9 +211,20 @@ layout(binding = 1, rgba8) uniform writeonly image2D oChannel;)",
     return std::move(std::get<std::string>(res));
   }
 
-  auto code = std::move(std::get<std::vector<unsigned>>(res));
+  auto data = std::move(std::get<ShaderData>(res));
+  int old_num = parameters.size();
+  parameters.clear();
+  for (auto param : data.parameters) {
+    parameters.push_back(Parameter{
+        .info = param,
+        .value = param.default_value,
+    });
+  }
 
-  compute = std::make_unique<Compute>(vulkan, code);
+  compute = std::make_unique<Compute>(vulkan, data.spirv_code);
+  get_effect()->numParams = parameters.size();
+  this->adjust_params_num(0, -old_num);
+  this->adjust_params_num(0, parameters.size());
 
   return {};
 }

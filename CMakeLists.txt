@@ -100,6 +100,7 @@ add_library(ogler MODULE
     "src/main.cpp"
     "src/ogler.cpp"
     "src/ogler_editor.cpp"
+    "src/ogler_params.cpp"
     "src/vulkan_context.cpp"
     "src/vst/ReaperVstPlugin.cpp")
 

@@ -20,6 +20,7 @@
 
 #include "interop.hpp"
 
+#include <optional>
 #include <sstream>
 #include <string.h>
 #include <string_view>
@@ -31,6 +32,17 @@ template <typename T> class VstPlugin {
   std::string chunkdata;
 
 protected:
+  static void copy_string(const void *src_p, void *dst_p, size_t src_sz,
+                          size_t dst_sz) {
+    size_t i;
+    auto src = static_cast<const char *>(src_p);
+    auto dst = static_cast<char *>(dst_p);
+    for (i = 0; i < src_sz && i < dst_sz - 1; ++i) {
+      dst[i] = src[i];
+    }
+    dst[i] = 0;
+  }
+
   vst::HostCallback *const hostcb;
 
   void host_automate(int index, float value) noexcept {
@@ -128,6 +140,10 @@ protected:
   virtual std::string_view get_parameter_text(int index) noexcept { return ""; }
   virtual std::string_view get_parameter_name(int index) noexcept { return ""; }
   virtual bool can_be_automated(int index) noexcept { return false; }
+  virtual std::optional<vst::ParameterProperties>
+  get_parameter_properties(int index) noexcept {
+    return std::nullopt;
+  }
   virtual bool string_to_parameter(int index, std::string text) noexcept {
     return false;
   }
@@ -148,7 +164,6 @@ public:
   VstPlugin(vst::HostCallback *hostcb)
       : hostcb(hostcb),
         effect({
-            .magic = Magic,
             .dispatcher = [](AEffect *effect, PluginOpcode opcode,
                              std::int32_t index, std::intptr_t value, void *ptr,
                              float opt) -> std::intptr_t {
@@ -170,22 +185,22 @@ public:
                 break;
               case PluginOpcode::GetProgramName: {
                 auto str = plugin->get_preset_name();
-                memcpy_s(ptr, MaxParamStrLen, str.data(), str.size());
+                copy_string(str.data(), ptr, str.size(), MaxParamStrLen);
                 return 1;
               }
               case PluginOpcode::GetParamLabel: {
                 auto str = plugin->get_parameter_label(index);
-                memcpy_s(ptr, MaxParamStrLen, str.data(), str.size());
+                copy_string(str.data(), ptr, str.size(), MaxParamStrLen);
                 return 1;
               }
               case PluginOpcode::GetParamDisplay: {
                 auto str = plugin->get_parameter_text(index);
-                memcpy_s(ptr, MaxParamStrLen, str.data(), str.size());
+                copy_string(str.data(), ptr, str.size(), MaxParamStrLen);
                 return 1;
               }
               case PluginOpcode::GetParamName: {
                 auto str = plugin->get_parameter_name(index);
-                memcpy_s(ptr, MaxParamStrLen, str.data(), str.size());
+                copy_string(str.data(), ptr, str.size(), MaxParamStrLen);
                 return 1;
               }
               case PluginOpcode::CanBeAutomated:
@@ -205,17 +220,17 @@ public:
                 break;
               case PluginOpcode::GetEffectName: {
                 auto str = plugin->get_effect_name();
-                memcpy_s(ptr, MaxVendorStrLen, str.data(), str.size());
+                copy_string(str.data(), ptr, str.size(), MaxVendorStrLen);
                 return 1;
               }
               case PluginOpcode::GetVendorString: {
                 auto str = plugin->get_vendor_name();
-                memcpy_s(ptr, MaxVendorStrLen, str.data(), str.size());
+                copy_string(str.data(), ptr, str.size(), MaxVendorStrLen);
                 return 1;
               }
               case PluginOpcode::GetProductString: {
                 auto str = plugin->get_product_name();
-                memcpy_s(ptr, MaxVendorStrLen, str.data(), str.size());
+                copy_string(str.data(), ptr, str.size(), MaxVendorStrLen);
                 return 1;
               }
               case PluginOpcode::GetVendorVersion:
@@ -271,6 +286,18 @@ public:
                   plugin->load_bank_data(stream);
                 }
               } break;
+              case PluginOpcode::GetParameterProperties: {
+                auto res = plugin->get_parameter_properties(index);
+                if (res.has_value()) {
+                  *static_cast<ParameterProperties *>(ptr) = *res;
+                  return true;
+                } else {
+                  return false;
+                }
+              }
+              case PluginOpcode::VendorSpecific: {
+                return plugin->vendor_specific(index, value, ptr, opt);
+              }
               default:
                 break;
               }

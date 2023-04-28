@@ -18,27 +18,12 @@
 
 #pragma once
 
-#include <string>
-#include <variant>
-#include <vector>
+#include "compile_shader.hpp"
+#include "ogler.hpp"
 
 namespace ogler {
-
-struct ParameterInfo {
-  std::string name;
-  std::string display_name;
-  float default_value;
-  float minimum_val;
-  float maximum_val;
-  float middle_value;
-  float step_size;
+struct OglerVst::Parameter {
+  ParameterInfo info;
+  float value;
 };
-
-struct ShaderData {
-  std::vector<unsigned> spirv_code;
-  std::vector<ParameterInfo> parameters;
-};
-
-std::variant<ShaderData, std::string>
-compile_shader(const std::vector<std::string> &source);
 } // namespace ogler
