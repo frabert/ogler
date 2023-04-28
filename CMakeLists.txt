@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.17)
 
 set(OGLER_VER_MAJOR 0)
-set(OGLER_VER_MINOR 3)
+set(OGLER_VER_MINOR 4)
 set(OGLER_VER_REV 0)
 
 project(ogler
