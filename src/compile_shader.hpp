@@ -19,6 +19,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -42,5 +43,5 @@ struct ShaderData {
 };
 
 std::variant<ShaderData, std::string>
-compile_shader(const std::vector<std::string> &source);
+compile_shader(const std::vector<std::pair<std::string, std::string>> &source);
 } // namespace ogler

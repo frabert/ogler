@@ -23,7 +23,6 @@
 #include <glslang/SPIRV/GlslangToSpv.h>
 #include <sstream>
 #include <stdexcept>
-#include <vector>
 
 #define OGLER_CONCAT_(x, y) x##y
 #define OGLER_CONCAT(x, y) OGLER_CONCAT_(x, y)
@@ -276,12 +275,16 @@ public:
 };
 
 std::variant<ShaderData, std::string>
-compile_shader(const std::vector<std::string> &source) {
+compile_shader(const std::vector<std::pair<std::string, std::string>> &source) {
   glslang::TShader shader(EShLangCompute);
-  std::vector<const char *> sources(source.size());
-  std::transform(source.begin(), source.end(), sources.begin(),
-                 [](const std::string &s) { return s.c_str(); });
-  shader.setStrings(sources.data(), sources.size());
+  std::vector<const char *> sources;
+  std::vector<const char *> names;
+  for (auto &[name, contents] : source) {
+    sources.push_back(contents.c_str());
+    names.push_back(name.c_str());
+  }
+  shader.setStringsWithLengthsAndNames(sources.data(), nullptr, names.data(),
+                                       source.size());
   shader.setEnvInput(glslang::EShSourceGlsl, EShLangCompute,
                      glslang::EShClientVulkan, 100);
   shader.setEnvClient(glslang::EShClientVulkan, OGLER_VULKAN_TARGET);

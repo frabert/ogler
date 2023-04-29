@@ -204,7 +204,7 @@ void OglerVst::load_bank_data(std::istream &s) noexcept { load_preset_data(s); }
 std::optional<std::string> OglerVst::recompile_shaders() {
   std::unique_lock<std::recursive_mutex> lock(params_mutex);
 
-  auto res = compile_shader({R"(#version 460
+  auto res = compile_shader({{"<preamble>", R"(#version 460
 #define OGLER_PARAMS_BINDING 2
 #define OGLER_PARAMS layout(binding = OGLER_PARAMS_BINDING) uniform Params
 
@@ -219,13 +219,13 @@ layout(push_constant) uniform UniformBlock {
   float iWet;
 };
 layout(binding = 0) uniform sampler2D iChannel;
-layout(binding = 1, rgba8) uniform writeonly image2D oChannel;)",
-                             data.video_shader,
-                             R"(void main() {
+layout(binding = 1, rgba8) uniform writeonly image2D oChannel;)"},
+                             {"<source>", data.video_shader},
+                             {"<epilogue>", R"(void main() {
     vec4 fragColor;
     mainImage(fragColor, vec2(gl_GlobalInvocationID));
     imageStore(oChannel, ivec2(gl_GlobalInvocationID), fragColor);
-})"});
+})"}});
   if (std::holds_alternative<std::string>(res)) {
     return std::move(std::get<std::string>(res));
   }
