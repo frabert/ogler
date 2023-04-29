@@ -148,6 +148,11 @@ protected:
   std::string_view get_product_name() noexcept final;
   std::int32_t get_vendor_version() noexcept final;
 
+  void process(float **inputs, float **outputs,
+               std::int32_t num_samples) noexcept final;
+  void process(double **inputs, double **outputs,
+               std::int32_t num_samples) noexcept final;
+
   bool has_editor() noexcept final;
   void get_editor_bounds(std::int16_t &top, std::int16_t &left,
                          std::int16_t &bottom,

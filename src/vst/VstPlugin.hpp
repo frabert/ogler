@@ -320,12 +320,18 @@ public:
             .object = this,
             .uniqueID = T::unique_id,
             .version = T::version,
-            .processReplacing = [](AEffect *effect, float **inputs,
-                                   float **outputs,
-                                   std::int32_t sampleFrames) {},
-            .processDoubleReplacing = [](AEffect *effect, double **inputs,
-                                         double **outputs,
-                                         std::int32_t sampleFrames) {},
+            .processReplacing =
+                [](AEffect *effect, float **inputs, float **outputs,
+                   std::int32_t sampleFrames) {
+                  return static_cast<VstPlugin *>(effect->object)
+                      ->process(inputs, outputs, sampleFrames);
+                },
+            .processDoubleReplacing =
+                [](AEffect *effect, double **inputs, double **outputs,
+                   std::int32_t sampleFrames) {
+                  return static_cast<VstPlugin *>(effect->object)
+                      ->process(inputs, outputs, sampleFrames);
+                },
         }) {}
   virtual ~VstPlugin() = default;
 };

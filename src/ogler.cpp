@@ -632,4 +632,16 @@ OglerVst::video_process_frame(std::span<const double> parms,
 
   return output_frame;
 }
+
+void OglerVst::process(float **inputs, float **outputs,
+                       std::int32_t num_samples) noexcept {
+  std::copy(inputs[0], inputs[0] + num_samples, outputs[0]);
+  std::copy(inputs[1], inputs[1] + num_samples, outputs[1]);
+}
+
+void OglerVst::process(double **inputs, double **outputs,
+                       std::int32_t num_samples) noexcept {
+  std::copy(inputs[0], inputs[0] + num_samples, outputs[0]);
+  std::copy(inputs[1], inputs[1] + num_samples, outputs[1]);
+}
 } // namespace ogler
