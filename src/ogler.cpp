@@ -168,11 +168,11 @@ OglerVst::OglerVst(vst::HostCallback *hostcb)
 
 OglerVst::~OglerVst() = default;
 
-std::string_view OglerVst::get_effect_name() noexcept { return "Ogler"; }
+std::string_view OglerVst::get_effect_name() noexcept { return "ogler"; }
 std::string_view OglerVst::get_vendor_name() noexcept {
   return "Francesco Bertolaccini";
 }
-std::string_view OglerVst::get_product_name() noexcept { return "Ogler"; }
+std::string_view OglerVst::get_product_name() noexcept { return "ogler"; }
 std::int32_t OglerVst::get_vendor_version() noexcept { return 1000; }
 
 void PatchData::deserialize(std::istream &s) {
