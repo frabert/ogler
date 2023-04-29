@@ -88,8 +88,8 @@ struct PatchData {
 };
 
 class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
-  static constexpr int output_width = 1024;
-  static constexpr int output_height = 768;
+  int output_width = 1024;
+  int output_height = 768;
 
   VulkanContext vulkan;
   vk::raii::Sampler sampler;

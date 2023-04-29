@@ -37,6 +37,8 @@ struct ParameterInfo {
 struct ShaderData {
   std::vector<unsigned> spirv_code;
   std::vector<ParameterInfo> parameters;
+  int output_width = 1024;
+  int output_height = 768;
 };
 
 std::variant<ShaderData, std::string>

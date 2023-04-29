@@ -229,6 +229,23 @@ layout(binding = 1, rgba8) uniform writeonly image2D oChannel;)",
   }
 
   auto data = std::move(std::get<ShaderData>(res));
+  if (output_width != data.output_width ||
+      output_height != data.output_height) {
+    output_width = data.output_width;
+    output_height = data.output_height;
+
+    output_transfer_buffer = vulkan.create_buffer(
+        {}, output_width * output_height * 4,
+        vk::BufferUsageFlagBits::eTransferDst, vk::SharingMode::eExclusive,
+        vk::MemoryPropertyFlagBits::eHostVisible |
+            vk::MemoryPropertyFlagBits::eHostCoherent);
+    output_image = vulkan.create_image(
+        output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
+        vk::ImageUsageFlagBits::eStorage |
+            vk::ImageUsageFlagBits::eTransferSrc);
+    output_image_view = vulkan.create_image_view(output_image, RGBAFormat);
+  }
+
   int old_num = parameters.size();
   parameters.clear();
   for (auto param : data.parameters) {
@@ -376,8 +393,8 @@ OglerVst::video_process_frame(std::span<const double> parms,
   UniformsView uniforms{
       .data =
           {
-              .iResolution_w = output_width,
-              .iResolution_h = output_height,
+              .iResolution_w = static_cast<float>(output_width),
+              .iResolution_h = static_cast<float>(output_height),
               .iTime = static_cast<float>(project_time),
               .iSampleRate = 0,
               .iChannelResolution_w = 1,

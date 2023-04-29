@@ -150,6 +150,8 @@ static const TBuiltInResource DefaultTBuiltInResource = {
 
 class ParamCollector : public glslang::TIntermTraverser {
   std::vector<ParameterInfo> &params;
+  int &output_width;
+  int &output_height;
 
   ParameterInfo *find_param(const std::string &name) {
     for (auto &param : params) {
@@ -166,12 +168,15 @@ class ParamCollector : public glslang::TIntermTraverser {
   }
 
 public:
-  ParamCollector(std::vector<ParameterInfo> &params) : params(params) {}
+  ParamCollector(ShaderData &data)
+      : params(data.parameters), output_width(data.output_width),
+        output_height(data.output_height) {}
 
   void visitSymbol(glslang::TIntermSymbol *sym) final {
     auto &type = sym->getType();
     auto &c = sym->getConstArray();
     bool isArray = sym->isArray();
+    bool isVector = sym->isVector();
     if (sym->getBasicType() == glslang::EbtBlock &&
         type.getQualifier().layoutBinding == 2) {
       for (auto &field : *type.getStruct()) {
@@ -230,6 +235,13 @@ public:
           param->step_size = c[0].getDConst();
         }
       }
+    } else if (isVector && sym->getBasicType() == glslang::EbtInt &&
+               c.size() == 2) {
+      auto &name = sym->getName();
+      if (name == "ogler_output_resolution") {
+        output_width = c[0].getIConst();
+        output_height = c[1].getIConst();
+      }
     }
   }
 
@@ -287,7 +299,7 @@ compile_shader(const std::vector<std::string> &source) {
   }
 
   ShaderData data;
-  ParamCollector collector(data.parameters);
+  ParamCollector collector(data);
   auto iterm = prog.getIntermediate(EShLangCompute);
   try {
     iterm->getTreeRoot()->traverse(&collector);
