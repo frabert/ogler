@@ -205,6 +205,8 @@ std::optional<std::string> OglerVst::recompile_shaders() {
   std::unique_lock<std::recursive_mutex> lock(params_mutex);
 
   auto res = compile_shader({R"(#version 460
+#define OGLER_PARAMS_BINDING 2
+#define OGLER_PARAMS layout(binding = OGLER_PARAMS_BINDING) uniform Params
 
 layout(local_size_x = 1, local_size_y = 1) in;
 
