@@ -394,8 +394,9 @@ OglerVst::video_process_frame(std::span<const double> parms,
   transition_image_layout_download(command_buffer, output_image);
 
   auto num_inputs = get_video_num_inputs();
-  if (num_inputs > 0) {
-    auto input_frame = get_video_input(0, vst::FrameFormat::RGBA);
+  IVideoFrame *input_frame{};
+  if (num_inputs > 0 &&
+      (input_frame = get_video_input(0, vst::FrameFormat::RGBA))) {
     auto input_w = input_frame->get_w();
     auto input_h = input_frame->get_h();
     auto input_rowspan = input_frame->get_rowspan();
