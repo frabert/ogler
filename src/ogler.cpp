@@ -191,6 +191,9 @@ void OglerVst::save_preset_data(std::ostream &s) noexcept { data.serialize(s); }
 
 void OglerVst::load_preset_data(std::istream &s) noexcept {
   data.deserialize(s);
+  if (editor) {
+    editor->reload_source();
+  }
   recompile_shaders();
 }
 

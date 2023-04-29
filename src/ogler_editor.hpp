@@ -38,6 +38,8 @@ struct OglerVst::Editor {
   Editor(void *hWnd, int &w, int &h, OglerVst &vst);
   ~Editor();
 
+  void reload_source();
+
 private:
   void create();
   void resize();

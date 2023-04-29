@@ -160,6 +160,10 @@ void OglerVst::Editor::recompile_clicked() {
   }
 }
 
+void OglerVst::Editor::reload_source() {
+  sc_call->SetText(vst.data.video_shader.c_str());
+}
+
 bool OglerVst::has_editor() noexcept { return true; }
 
 void OglerVst::get_editor_bounds(std::int16_t &top, std::int16_t &left,
