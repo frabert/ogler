@@ -18,6 +18,7 @@
 
 #include "ogler.hpp"
 #include "compile_shader.hpp"
+#include "ogler_debug.hpp"
 #include "ogler_editor.hpp"
 #include "ogler_params.hpp"
 

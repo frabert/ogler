@@ -34,32 +34,6 @@
 namespace ogler {
 HINSTANCE get_hinstance();
 
-class DebugStream {
-public:
-  template <typename T> DebugStream operator<<(T &&value) {
-    std::stringstream ss;
-    ss << std::forward<T>(value);
-    OutputDebugStringA(ss.str().c_str());
-    return {};
-  }
-};
-
-class ReaperStream {
-public:
-  template <typename T> ReaperStream operator<<(T &&value) {
-    std::stringstream ss;
-    ss << std::forward<T>(value);
-    ShowConsoleMsg(ss.str().c_str());
-    return {};
-  }
-};
-
-#ifdef NDEBUG
-#define DBG ReaperStream()
-#else
-#define DBG DebugStream()
-#endif
-
 namespace version {
 constexpr int major = OGLER_VER_MAJOR;
 constexpr int minor = OGLER_VER_MINOR;
