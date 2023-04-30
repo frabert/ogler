@@ -133,7 +133,7 @@ void OglerVst::Editor::create() {
   auto ptr_ = SendMessage(scintilla, SCI_GETDIRECTPOINTER, 0, 0);
   sc_call = std::make_unique<Scintilla::ScintillaCall>();
   sc_call->SetFnPtr(fn_, ptr_);
-  sc_call->SetText(vst.data.video_shader.c_str());
+  reload_source();
 
   sc_call->SetViewWS(Scintilla::WhiteSpace::VisibleAlways);
   sc_call->SetTabWidth(4);
@@ -195,6 +195,7 @@ void OglerVst::Editor::recompile_clicked() {
 
 void OglerVst::Editor::reload_source() {
   sc_call->SetText(vst.data.video_shader.c_str());
+  sc_call->EmptyUndoBuffer();
 }
 
 bool OglerVst::has_editor() noexcept { return true; }
