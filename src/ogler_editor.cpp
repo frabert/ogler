@@ -21,10 +21,11 @@
 #include "ogler_editor.hpp"
 
 #include <memory>
+#include <regex>
 #include <span>
+#include <sstream>
 #include <thread>
 #include <vector>
-#include <winuser.h>
 
 #define WIN32_LEAN_AND_MEAN
 #include <commctrl.h>
@@ -36,17 +37,11 @@
 
 #include <ScintillaCall.h>
 
+#include "ogler_styles.hpp"
+
 namespace ogler {
 
 ATOM cls_atom{};
-
-static std::span<char> load_resource(const char *name, const char *type) {
-  auto resinfo = FindResource(get_hinstance(), name, type);
-  auto res = LoadResource(get_hinstance(), resinfo);
-  auto size = SizeofResource(get_hinstance(), resinfo);
-
-  return std::span<char>(reinterpret_cast<char *>(res), size);
-}
 
 OglerVst::Editor::Editor(void *parent, int &w, int &h, OglerVst &vst)
     : parent_wnd(static_cast<HWND>(parent)), width(w), height(h), vst(vst) {
@@ -131,9 +126,15 @@ void OglerVst::Editor::create() {
   sc_call->SetFnPtr(fn_, ptr_);
   sc_call->SetText(vst.data.video_shader.c_str());
 
+  sc_call->SetViewWS(Scintilla::WhiteSpace::VisibleAlways);
+  sc_call->SetTabWidth(4);
+  sc_call->SetUseTabs(false);
+
   sc_call->StyleSetFont(STYLE_DEFAULT, "Consolas");
   auto width = sc_call->TextWidth(STYLE_LINENUMBER, "_999");
   sc_call->SetMarginWidthN(0, width);
+
+  sc_call->StyleSetBack(STY_ErrorAnnotation, 0xFFCCCCFF);
 }
 
 void OglerVst::Editor::scintilla_noti(unsigned code,
@@ -147,9 +148,26 @@ void OglerVst::Editor::resize(int w, int h) {
 }
 
 void OglerVst::Editor::recompile_clicked() {
+  sc_call->AnnotationClearAll();
   vst.data.video_shader = sc_call->GetText(sc_call->TextLength());
   if (auto err = vst.recompile_shaders()) {
-    MessageBox(child_wnd, err->c_str(), "Shader compilation error",
+    auto err_str = std::move(*err);
+    std::istringstream err_stream(err_str);
+    auto err_regex = std::regex(R"(ERROR: <source>:(\d+): (.+))");
+    std::string line;
+    while (std::getline(err_stream, line)) {
+      std::smatch match;
+      if (std::regex_match(line, match, err_regex)) {
+        auto line = std::stoi(match[1].str());
+        auto msg = match[2].str();
+
+        sc_call->AnnotationSetText(line - 1, msg.c_str());
+        sc_call->AnnotationSetStyle(line - 1, STY_ErrorAnnotation);
+        sc_call->AnnotationSetVisible(Scintilla::AnnotationVisible::Indented);
+      }
+    }
+
+    MessageBox(child_wnd, err_str.c_str(), "Shader compilation error",
                MB_OK | MB_ICONERROR);
   }
 }
