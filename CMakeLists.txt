@@ -37,9 +37,18 @@ FetchContent_Declare(
     GIT_PROGRESS TRUE
     USES_TERMINAL_DOWNLOAD TRUE
 )
+FetchContent_Declare(
+    re2c
+    URL https://github.com/skvadrik/re2c/releases/download/3.0/re2c-3.0.tar.lz
+    URL_HASH SHA3_224=7a5ca7acc8720ea070f6f2998f71f5c52265a4d6f43153907014ebf4
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
 
 set(SKIP_GLSLANG_INSTALL TRUE CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(reaper-sdk wdl scintilla glslang)
+set(RE2C_BUILD_RE2GO FALSE CACHE BOOL "" FORCE)
+set(RE2C_BUILD_RE2RUST FALSE CACHE BOOL "" FORCE)
+set(RE2C_BUILD_BENCHMARKS FALSE CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(reaper-sdk wdl scintilla glslang re2c)
 
 add_library(scintilla STATIC
     "${scintilla_SOURCE_DIR}/src/AutoComplete.cxx"
@@ -95,15 +104,28 @@ target_include_directories(reaper_sdk
 find_package(Vulkan REQUIRED COMPONENTS glslang)
 find_package(nlohmann_json 3 REQUIRED)
 
+add_custom_command(
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp"
+    COMMAND re2c
+    ARGS "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_lexer_lex.re"
+    --output "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp"
+    -I "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    --depfile "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp.d"
+    DEPFILE "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp.d"
+)
+
 add_library(ogler MODULE
     "src/compile_shader.cpp"
     "src/main.cpp"
     "src/ogler.cpp"
     "src/ogler_debug.cpp"
     "src/ogler_editor.cpp"
+    "src/ogler_lexer.cpp"
     "src/ogler_params.cpp"
     "src/vulkan_context.cpp"
-    "src/vst/ReaperVstPlugin.cpp")
+    "src/vst/ReaperVstPlugin.cpp"
+
+    "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp")
 
 set(OGLER_VULKAN_VER "1_0")
 set_target_properties(ogler
@@ -125,6 +147,7 @@ target_link_libraries(ogler
     nlohmann_json::nlohmann_json
     glslang
     SPIRV)
+target_include_directories(ogler PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 install(
     TARGETS ogler

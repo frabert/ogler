@@ -32,6 +32,7 @@ enum OglerStyle {
   STY_String,
   STY_BuiltinFunc,
   STY_Punctuation,
+  STY_Comment,
 
   STY_ErrorAnnotation,
 };

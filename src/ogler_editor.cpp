@@ -37,9 +37,18 @@
 
 #include <ScintillaCall.h>
 
+#include "ogler_lexer.hpp"
 #include "ogler_styles.hpp"
 
 namespace ogler {
+
+static constexpr int rgb(int r, int g, int b) {
+  return r | (g << 8) | (b << 16);
+}
+
+static constexpr int rgba(int r, int g, int b, int a) {
+  return r | (g << 8) | (b << 16) | (a << 24);
+}
 
 ATOM cls_atom{};
 
@@ -134,7 +143,19 @@ void OglerVst::Editor::create() {
   auto width = sc_call->TextWidth(STYLE_LINENUMBER, "_999");
   sc_call->SetMarginWidthN(0, width);
 
+  sc_call->StyleSetFore(STY_Keyword, rgb(0x00, 0x00, 0xFF));
+  sc_call->StyleSetFore(STY_Type, rgb(0x00, 0x80, 0x80));
+  sc_call->StyleSetFore(STY_Integer, rgb(0x4B, 0x00, 0x82));
+  sc_call->StyleSetFore(STY_Float, rgb(0x4B, 0x00, 0x82));
+  sc_call->StyleSetFore(STY_Bool, rgb(0x00, 0x0, 0xFF));
+  sc_call->StyleSetFore(STY_String, rgb(0x80, 0x00, 0x00));
+  sc_call->StyleSetFore(STY_BuiltinFunc, rgb(0x8b, 0x00, 0x8b));
+  sc_call->StyleSetFore(STY_Punctuation, 0);
+  sc_call->StyleSetFore(STY_Comment, rgb(0x00, 0x64, 0x00));
+
   sc_call->StyleSetBack(STY_ErrorAnnotation, 0xFFCCCCFF);
+
+  sc_call->SetILexer(new GlslLexer());
 }
 
 void OglerVst::Editor::scintilla_noti(unsigned code,
