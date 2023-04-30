@@ -133,6 +133,7 @@ protected:
                          std::int16_t &right) noexcept final;
   void open_editor(void *hWnd) noexcept final;
   void close_editor() noexcept final;
+  void editor_idle() noexcept final;
   bool is_editor_open() noexcept final;
 
   IVideoFrame *

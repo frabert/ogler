@@ -27,7 +27,7 @@ class ScintillaCall;
 
 namespace ogler {
 struct OglerVst::Editor {
-  HWND parent_wnd, child_wnd, scintilla, statusbar, recompile_btn;
+  HWND parent_wnd, child_wnd, scintilla, recompile_btn;
   std::unique_ptr<Scintilla::ScintillaCall> sc_call;
 
   int &width;
@@ -42,7 +42,7 @@ struct OglerVst::Editor {
 
 private:
   void create();
-  void resize();
+  void resize(int w, int h);
   void recompile_clicked();
   void scintilla_noti(unsigned code, const SCNotification &);
 };

@@ -54,7 +54,7 @@ OglerVst::Editor::Editor(void *parent, int &w, int &h, OglerVst &vst)
   if (!cls_atom) {
     WNDCLASSEX cls{
         .cbSize = sizeof(WNDCLASSEX),
-        .style = CS_DBLCLKS | CS_OWNDC,
+        .style = CS_DBLCLKS,
         .lpfnWndProc = [](HWND hWnd, UINT Msg, WPARAM wParam,
                           LPARAM lParam) -> LRESULT {
           if (Msg == WM_CREATE) {
@@ -74,7 +74,7 @@ OglerVst::Editor::Editor(void *parent, int &w, int &h, OglerVst &vst)
             break;
           }
           case WM_SIZE:
-            editor->resize();
+            editor->resize(LOWORD(lParam), HIWORD(lParam));
             break;
           case WM_NOTIFY: {
             auto noti = reinterpret_cast<LPNMHDR>(lParam);
@@ -118,10 +118,11 @@ void OglerVst::Editor::create() {
                      WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON, 0,
                      0, 100, 50, child_wnd, nullptr, get_hinstance(), nullptr);
 
-  scintilla = CreateWindowEx(
-      0, "Scintilla", "",
-      WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPCHILDREN | SBS_SIZEGRIP, 0,
-      50, 100, 100, child_wnd, nullptr, get_hinstance(), nullptr);
+  scintilla = CreateWindowEx(0, "Scintilla", "",
+                             WS_CHILD | WS_VISIBLE | WS_TABSTOP |
+                                 WS_CLIPCHILDREN | WS_HSCROLL | WS_VSCROLL,
+                             0, 50, 100, 100, child_wnd, nullptr,
+                             get_hinstance(), nullptr);
 
   auto fn_ = reinterpret_cast<Scintilla::FunctionDirect>(
       SendMessage(scintilla, SCI_GETDIRECTFUNCTION, 0, 0));
@@ -133,23 +134,16 @@ void OglerVst::Editor::create() {
   sc_call->StyleSetFont(STYLE_DEFAULT, "Consolas");
   auto width = sc_call->TextWidth(STYLE_LINENUMBER, "_999");
   sc_call->SetMarginWidthN(0, width);
-
-  statusbar = CreateWindowEx(0, STATUSCLASSNAME, "",
-                             WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, 0, 0, 0, 0,
-                             child_wnd, nullptr, get_hinstance(), nullptr);
 }
 
 void OglerVst::Editor::scintilla_noti(unsigned code,
                                       const SCNotification &noti) {}
 
-void OglerVst::Editor::resize() {
-  SendMessage(statusbar, WM_SIZE, 0, 0);
-  RECT statusbar_size, size;
-  GetClientRect(statusbar, &statusbar_size);
-  GetClientRect(child_wnd, &size);
-  SetWindowPos(recompile_btn, nullptr, 0, 0, size.right, 50, SWP_NOMOVE);
-  SetWindowPos(scintilla, nullptr, 0, 50, size.right,
-               size.bottom - statusbar_size.bottom - 50, SWP_NOMOVE);
+void OglerVst::Editor::resize(int w, int h) {
+  SetWindowPos(recompile_btn, nullptr, 0, 0, w, 50, SWP_NOMOVE);
+  SetWindowPos(scintilla, nullptr, 0, 50, w, h - 50, SWP_NOMOVE);
+  width = w;
+  height = h;
 }
 
 void OglerVst::Editor::recompile_clicked() {
@@ -180,6 +174,21 @@ void OglerVst::open_editor(void *hWnd) noexcept {
 }
 
 void OglerVst::close_editor() noexcept { editor = nullptr; }
+
+void OglerVst::editor_idle() noexcept {
+  if (!editor) {
+    return;
+  }
+
+  auto parent_parent = GetParent(editor->parent_wnd);
+  RECT parent_rect, parent_parent_rect;
+  GetWindowRect(parent_parent, &parent_parent_rect);
+  GetWindowRect(editor->parent_wnd, &parent_rect);
+  auto w = parent_parent_rect.right - parent_parent_rect.left;
+  auto h = parent_parent_rect.bottom - parent_rect.top;
+  SetWindowPos(editor->parent_wnd, nullptr, 0, 0, w, h, SWP_NOMOVE);
+  SetWindowPos(editor->child_wnd, nullptr, 0, 0, w, h, SWP_NOMOVE);
+}
 
 bool OglerVst::is_editor_open() noexcept { return editor != nullptr; }
 
