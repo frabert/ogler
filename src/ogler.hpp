@@ -38,11 +38,25 @@ namespace version {
 constexpr int major = OGLER_VER_MAJOR;
 constexpr int minor = OGLER_VER_MINOR;
 constexpr int revision = OGLER_VER_REV;
-
 constexpr const char *string =
     OGLER_STRINGIZE(OGLER_VER_MAJOR) "." OGLER_STRINGIZE(
         OGLER_VER_MINOR) "." OGLER_STRINGIZE(OGLER_VER_REV);
 } // namespace version
+
+using eel_gmem_attach_f = double ***(const char *name, bool is_alloc);
+using mutex_stub_f = void();
+
+class EELMutex {
+  mutex_stub_f *enter;
+  mutex_stub_f *leave;
+
+public:
+  EELMutex(mutex_stub_f *enter, mutex_stub_f *leave)
+      : enter(enter), leave(leave) {}
+
+  void lock() { enter(); }
+  void unlock() { leave(); }
+};
 
 struct PatchData {
   std::string video_shader{
@@ -81,6 +95,9 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
 
   std::optional<Buffer> params_buffer;
 
+  Buffer gmem_transfer_buffer;
+  Buffer gmem_buffer;
+
   struct Compute;
   std::unique_ptr<Compute> compute;
 
@@ -101,6 +118,9 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
 
   std::mutex video_mutex;
   std::recursive_mutex params_mutex;
+
+  EELMutex eel_mutex;
+  double ***gmem{};
 
 public:
   static constexpr int num_programs = 0;

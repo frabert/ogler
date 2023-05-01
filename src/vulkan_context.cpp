@@ -17,6 +17,7 @@
 */
 
 #include "vulkan_context.hpp"
+#include <vulkan/vulkan_structs.hpp>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -221,13 +222,15 @@ vk::raii::PipelineCache VulkanContext::create_pipeline_cache() {
 vk::raii::Pipeline VulkanContext::create_compute_pipeline(
     vk::raii::ShaderModule &module, const char *entry_point,
     vk::raii::PipelineLayout &pipeline_layout,
-    vk::raii::PipelineCache &pipeline_cache) {
+    vk::raii::PipelineCache &pipeline_cache,
+    vk::SpecializationInfo *spec_info) {
   vk::ComputePipelineCreateInfo create_info{
       .stage =
           {
               .stage = vk::ShaderStageFlagBits::eCompute,
               .module = *module,
-              .pName = "main",
+              .pName = entry_point,
+              .pSpecializationInfo = spec_info,
           },
       .layout = *pipeline_layout,
   };

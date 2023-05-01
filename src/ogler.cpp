@@ -33,9 +33,14 @@
 #include <utility>
 #include <variant>
 
+#include <WDL/eel2/ns-eel.h>
+
 namespace ogler {
 
 static constexpr vk::Format RGBAFormat = vk::Format::eB8G8R8A8Unorm;
+
+static constexpr uint32_t gmem_size =
+    NSEEL_RAM_BLOCKS * NSEEL_RAM_ITEMSPERBLOCK;
 
 struct Uniforms {
   float iResolution_w, iResolution_h;
@@ -61,35 +66,57 @@ struct OglerVst::Compute {
 
   vk::raii::PipelineCache pipeline_cache;
   vk::raii::PipelineLayout pipeline_layout;
+  std::array<vk::SpecializationMapEntry, 1> pipeline_spec_entries{
+      // OGLER_GMEM_SIZE
+      vk::SpecializationMapEntry{
+          .constantID = 0,
+          .offset = 0,
+          .size = sizeof(uint32_t),
+      },
+  };
+  std::array<unsigned, 1> pipeline_spec_data{
+      // OGLER_GMEM_SIZE
+      gmem_size,
+  };
+  vk::SpecializationInfo pipeline_spec_info{
+      .mapEntryCount = static_cast<uint32_t>(pipeline_spec_entries.size()),
+      .pMapEntries = pipeline_spec_entries.data(),
+      .dataSize = static_cast<uint32_t>(sizeof(pipeline_spec_data)),
+      .pData = pipeline_spec_data.data(),
+  };
   vk::raii::Pipeline pipeline;
 
   static vk::raii::DescriptorSetLayout
   create_descriptor_set_layout(VulkanContext &ctx) {
-    vk::DescriptorSetLayoutBinding input_texture{
-        .binding = 0,
-        .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-        .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eCompute,
-    };
-
-    vk::DescriptorSetLayoutBinding output_texture{
-        .binding = 1,
-        .descriptorType = vk::DescriptorType::eStorageImage,
-        .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eCompute,
-    };
-
-    vk::DescriptorSetLayoutBinding params{
-        .binding = 2,
-        .descriptorType = vk::DescriptorType::eUniformBuffer,
-        .descriptorCount = 1,
-        .stageFlags = vk::ShaderStageFlagBits::eCompute,
-    };
-
     std::vector<vk::DescriptorSetLayoutBinding> bindings = {
-        input_texture,
-        output_texture,
-        params,
+        // Input texture
+        {
+            .binding = 0,
+            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+        // Output texture
+        {
+            .binding = 1,
+            .descriptorType = vk::DescriptorType::eStorageImage,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+        // gmem
+        {
+            .binding = 2,
+            .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+        // Params
+        {
+            .binding = 3,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
     };
     vk::DescriptorSetLayoutCreateInfo layout_info{
         .bindingCount = static_cast<uint32_t>(bindings.size()),
@@ -101,15 +128,23 @@ struct OglerVst::Compute {
 
   static vk::raii::DescriptorPool create_descriptor_pool(VulkanContext &ctx) {
     std::vector<vk::DescriptorPoolSize> pool_sizes = {
-        vk::DescriptorPoolSize{
+        // Input texture
+        {
             .type = vk::DescriptorType::eCombinedImageSampler,
             .descriptorCount = 1,
         },
-        vk::DescriptorPoolSize{
+        // Output texture
+        {
             .type = vk::DescriptorType::eStorageImage,
             .descriptorCount = 1,
         },
-        vk::DescriptorPoolSize{
+        // gmem
+        {
+            .type = vk::DescriptorType::eStorageBuffer,
+            .descriptorCount = 1,
+        },
+        // Params
+        {
             .type = vk::DescriptorType::eUniformBuffer,
             .descriptorCount = 1,
         },
@@ -145,7 +180,8 @@ struct OglerVst::Compute {
         pipeline_layout(ctx.create_pipeline_layout(descriptor_set_layout,
                                                    sizeof(Uniforms))),
         pipeline(ctx.create_compute_pipeline(shader, "main", pipeline_layout,
-                                             pipeline_cache)) {}
+                                             pipeline_cache,
+                                             &pipeline_spec_info)) {}
 };
 
 OglerVst::OglerVst(vst::HostCallback *hostcb)
@@ -161,10 +197,28 @@ OglerVst::OglerVst(vst::HostCallback *hostcb)
           output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
           vk::ImageUsageFlagBits::eStorage |
               vk::ImageUsageFlagBits::eTransferSrc)),
-      output_image_view(vulkan.create_image_view(output_image, RGBAFormat)) {
+      output_image_view(vulkan.create_image_view(output_image, RGBAFormat)),
+      gmem_transfer_buffer(vulkan.create_buffer(
+          {}, gmem_size * sizeof(float), vk::BufferUsageFlagBits::eTransferSrc,
+          vk::SharingMode::eExclusive,
+          vk::MemoryPropertyFlagBits::eHostVisible |
+              vk::MemoryPropertyFlagBits::eHostCoherent)),
+      gmem_buffer(
+          vulkan.create_buffer({}, gmem_size * sizeof(float),
+                               vk::BufferUsageFlagBits::eTransferDst |
+                                   vk::BufferUsageFlagBits::eStorageBuffer,
+                               vk::SharingMode::eExclusive,
+                               vk::MemoryPropertyFlagBits::eDeviceLocal)),
+      eel_mutex(
+          get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_EnterMutex"),
+          get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_LEAVEMutex")) {
   if (auto err = recompile_shaders()) {
     DBG << *err << '\n';
   }
+
+  auto eel_gmem_attach =
+      get_reaper_function<eel_gmem_attach_f>("eel_gmem_attach");
+  gmem = eel_gmem_attach("ogler", true);
 }
 
 OglerVst::~OglerVst() = default;
@@ -206,8 +260,10 @@ std::optional<std::string> OglerVst::recompile_shaders() {
   std::unique_lock<std::recursive_mutex> lock(params_mutex);
 
   auto res = compile_shader({{"<preamble>", R"(#version 460
-#define OGLER_PARAMS_BINDING 2
+#define OGLER_PARAMS_BINDING 3
 #define OGLER_PARAMS layout(binding = OGLER_PARAMS_BINDING) uniform Params
+
+layout (constant_id = 0) const uint OGLER_GMEM_SIZE = 0;
 
 layout(local_size_x = 1, local_size_y = 1) in;
 
@@ -220,7 +276,11 @@ layout(push_constant) uniform UniformBlock {
   float iWet;
 };
 layout(binding = 0) uniform sampler2D iChannel;
-layout(binding = 1, rgba8) uniform writeonly image2D oChannel;)"},
+layout(binding = 1, rgba8) uniform writeonly image2D oChannel;
+layout(binding = 2) buffer readonly Gmem {
+  float gmem[];
+};
+)"},
                              {"<source>", data.video_shader},
                              {"<epilogue>", R"(void main() {
     vec4 fragColor;
@@ -418,6 +478,49 @@ OglerVst::video_process_frame(std::span<const double> parms,
 
   auto num_inputs = get_video_num_inputs();
   IVideoFrame *input_frame{};
+
+  {
+    std::unique_lock<EELMutex> eel_lock(eel_mutex);
+    MemoryMap<float> map(gmem_transfer_buffer.memory, 0, gmem_size);
+    auto dst = map.ptr.data();
+    double **pblocks = *gmem;
+    if (pblocks) {
+      for (size_t i = 0; i < NSEEL_RAM_BLOCKS; ++i) {
+        auto buf = pblocks[i];
+        if (buf) {
+          for (size_t j = 0; j < NSEEL_RAM_ITEMSPERBLOCK; ++j) {
+            dst[i * NSEEL_RAM_ITEMSPERBLOCK + j] = buf[j];
+          }
+
+          command_buffer.copyBuffer(
+              *gmem_transfer_buffer.buffer, *gmem_buffer.buffer,
+              {
+                  {
+                      .srcOffset = i * sizeof(float) * NSEEL_RAM_ITEMSPERBLOCK,
+                      .dstOffset = i * sizeof(float) * NSEEL_RAM_ITEMSPERBLOCK,
+                      .size = sizeof(float) * NSEEL_RAM_ITEMSPERBLOCK,
+                  },
+              });
+        }
+      }
+
+      command_buffer.pipelineBarrier(
+          vk::PipelineStageFlagBits::eHost,
+          vk::PipelineStageFlagBits::eComputeShader, {}, {},
+          {
+              vk::BufferMemoryBarrier{
+                  .srcAccessMask = vk::AccessFlagBits::eHostWrite,
+                  .dstAccessMask = vk::AccessFlagBits::eShaderRead,
+                  .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                  .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                  .buffer = *gmem_buffer.buffer,
+                  .size = VK_WHOLE_SIZE,
+              },
+          },
+          {});
+    }
+  }
+
   if (num_inputs > 0 &&
       (input_frame = get_video_input(0, vst::FrameFormat::RGBA))) {
     auto input_w = input_frame->get_w();
@@ -506,21 +609,36 @@ OglerVst::video_process_frame(std::span<const double> parms,
         .imageView = *output_image_view,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
+    vk::DescriptorBufferInfo gmem_buffer_info{
+        .buffer = *gmem_buffer.buffer,
+        .offset = 0,
+        .range = gmem_size * sizeof(float),
+    };
 
     std ::vector<vk::WriteDescriptorSet> write_descriptor_sets = {
-        vk::WriteDescriptorSet{
+        // Input texture
+        {
             .dstSet = *compute->descriptor_set,
             .dstBinding = 0,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eCombinedImageSampler,
             .pImageInfo = &input_image_info,
         },
-        vk::WriteDescriptorSet{
+        // Output texture
+        {
             .dstSet = *compute->descriptor_set,
             .dstBinding = 1,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageImage,
             .pImageInfo = &output_image_info,
+        },
+        // gmem
+        {
+            .dstSet = *compute->descriptor_set,
+            .dstBinding = 2,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .pBufferInfo = &gmem_buffer_info,
         },
     };
 
@@ -536,9 +654,9 @@ OglerVst::video_process_frame(std::span<const double> parms,
           .buffer = *params_buffer->buffer,
           .range = sizeof(float) * parameters.size(),
       };
-      write_descriptor_sets.push_back(vk::WriteDescriptorSet{
+      write_descriptor_sets.push_back({
           .dstSet = *compute->descriptor_set,
-          .dstBinding = 2,
+          .dstBinding = 3,
           .descriptorCount = 1,
           .descriptorType = vk::DescriptorType::eUniformBuffer,
           .pBufferInfo = &uniforms_info,

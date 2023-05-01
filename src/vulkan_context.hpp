@@ -84,7 +84,8 @@ public:
   create_compute_pipeline(vk::raii::ShaderModule &module,
                           const char *entry_point,
                           vk::raii::PipelineLayout &pipeline_layout,
-                          vk::raii::PipelineCache &pipeline_cache);
+                          vk::raii::PipelineCache &pipeline_cache,
+                          vk::SpecializationInfo *spec_info = nullptr);
 
   vk::raii::CommandPool create_compute_command_pool();
 

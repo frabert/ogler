@@ -115,6 +115,13 @@ protected:
                  static_cast<std::intptr_t>(HostOpcodes::Automate), list, 0);
   }
 
+  template <typename TFunc>
+  TFunc *get_reaper_function(const char *name) noexcept {
+    return reinterpret_cast<TFunc *>(
+        this->hostcb(this->get_effect(), static_cast<HostOpcodes>(0xdeadbeef),
+                     0xdeadf00d, 0, const_cast<char *>(name), 0.0));
+  }
+
   virtual void init() noexcept override {
     void *ctx = host_get_reaper_ctx();
     if (!ctx) {
