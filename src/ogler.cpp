@@ -445,6 +445,10 @@ OglerVst::video_process_frame(std::span<const double> parms,
     return nullptr;
   }
 
+  if (!compute) {
+    return nullptr;
+  }
+
   output_frame =
       new_video_frame(output_width, output_height, vst::FrameFormat::RGBA);
   auto output_rowspan = output_frame->get_rowspan();
