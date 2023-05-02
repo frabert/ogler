@@ -75,11 +75,22 @@ struct PatchData {
   void serialize(std::ostream &);
 };
 
+struct SharedVulkan {
+  VulkanContext vulkan;
+
+  Buffer gmem_transfer_buffer;
+  Buffer gmem_buffer;
+
+  SharedVulkan();
+};
+
 class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   int output_width = 1024;
   int output_height = 768;
 
-  VulkanContext vulkan;
+  static SharedVulkan &get_shared_vulkan();
+
+  SharedVulkan &shared;
   vk::raii::Sampler sampler;
   vk::raii::CommandBuffer command_buffer;
   vk::raii::Queue queue;
@@ -94,9 +105,6 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   std::optional<vk::raii::ImageView> input_image_view;
 
   std::optional<Buffer> params_buffer;
-
-  Buffer gmem_transfer_buffer;
-  Buffer gmem_buffer;
 
   struct Compute;
   std::unique_ptr<Compute> compute;

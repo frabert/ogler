@@ -215,21 +215,8 @@ struct OglerVst::Compute {
                                              &pipeline_spec_info)) {}
 };
 
-OglerVst::OglerVst(vst::HostCallback *hostcb)
-    : vst::ReaperVstPlugin<OglerVst>(hostcb), sampler(vulkan.create_sampler()),
-      command_buffer(vulkan.create_command_buffer()),
-      queue(vulkan.get_queue(0)), fence(vulkan.create_fence()),
-      output_transfer_buffer(vulkan.create_buffer(
-          {}, output_width * output_height * 4,
-          vk::BufferUsageFlagBits::eTransferDst, vk::SharingMode::eExclusive,
-          vk::MemoryPropertyFlagBits::eHostVisible |
-              vk::MemoryPropertyFlagBits::eHostCoherent)),
-      output_image(vulkan.create_image(
-          output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
-          vk::ImageUsageFlagBits::eStorage |
-              vk::ImageUsageFlagBits::eTransferSrc)),
-      output_image_view(vulkan.create_image_view(output_image, RGBAFormat)),
-      gmem_transfer_buffer(vulkan.create_buffer(
+SharedVulkan::SharedVulkan()
+    : gmem_transfer_buffer(vulkan.create_buffer(
           {}, gmem_size * sizeof(float), vk::BufferUsageFlagBits::eTransferSrc,
           vk::SharingMode::eExclusive,
           vk::MemoryPropertyFlagBits::eHostVisible |
@@ -239,7 +226,30 @@ OglerVst::OglerVst(vst::HostCallback *hostcb)
                                vk::BufferUsageFlagBits::eTransferDst |
                                    vk::BufferUsageFlagBits::eStorageBuffer,
                                vk::SharingMode::eExclusive,
-                               vk::MemoryPropertyFlagBits::eDeviceLocal)),
+                               vk::MemoryPropertyFlagBits::eDeviceLocal)) {}
+
+SharedVulkan &OglerVst::get_shared_vulkan() {
+  static SharedVulkan shared;
+
+  return shared;
+}
+
+OglerVst::OglerVst(vst::HostCallback *hostcb)
+    : vst::ReaperVstPlugin<OglerVst>(hostcb), shared(get_shared_vulkan()),
+      sampler(shared.vulkan.create_sampler()),
+      command_buffer(shared.vulkan.create_command_buffer()),
+      queue(shared.vulkan.get_queue(0)), fence(shared.vulkan.create_fence()),
+      output_transfer_buffer(shared.vulkan.create_buffer(
+          {}, output_width * output_height * 4,
+          vk::BufferUsageFlagBits::eTransferDst, vk::SharingMode::eExclusive,
+          vk::MemoryPropertyFlagBits::eHostVisible |
+              vk::MemoryPropertyFlagBits::eHostCoherent)),
+      output_image(shared.vulkan.create_image(
+          output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
+          vk::ImageUsageFlagBits::eStorage |
+              vk::ImageUsageFlagBits::eTransferSrc)),
+      output_image_view(
+          shared.vulkan.create_image_view(output_image, RGBAFormat)),
       eel_mutex(
           get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_EnterMutex"),
           get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_LEAVEMutex")) {
@@ -332,16 +342,17 @@ layout(binding = 3) buffer readonly Gmem {
     output_width = data.output_width;
     output_height = data.output_height;
 
-    output_transfer_buffer = vulkan.create_buffer(
+    output_transfer_buffer = shared.vulkan.create_buffer(
         {}, output_width * output_height * 4,
         vk::BufferUsageFlagBits::eTransferDst, vk::SharingMode::eExclusive,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent);
-    output_image = vulkan.create_image(
+    output_image = shared.vulkan.create_image(
         output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
         vk::ImageUsageFlagBits::eStorage |
             vk::ImageUsageFlagBits::eTransferSrc);
-    output_image_view = vulkan.create_image_view(output_image, RGBAFormat);
+    output_image_view =
+        shared.vulkan.create_image_view(output_image, RGBAFormat);
   }
 
   int old_num = parameters.size();
@@ -353,7 +364,7 @@ layout(binding = 3) buffer readonly Gmem {
     });
   }
 
-  compute = std::make_unique<Compute>(vulkan, data.spirv_code);
+  compute = std::make_unique<Compute>(shared.vulkan, data.spirv_code);
   get_effect()->numParams = parameters.size();
   if (old_num != parameters.size()) {
     this->adjust_params_num(0, -old_num);
@@ -361,7 +372,7 @@ layout(binding = 3) buffer readonly Gmem {
 
     if (parameters.size()) {
       auto buf_size = sizeof(float) * parameters.size();
-      params_buffer = vulkan.create_buffer(
+      params_buffer = shared.vulkan.create_buffer(
           {}, buf_size, vk::BufferUsageFlagBits::eUniformBuffer,
           vk::SharingMode::eExclusive,
           vk::MemoryPropertyFlagBits::eHostCoherent |
@@ -520,7 +531,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
 
   {
     std::unique_lock<EELMutex> eel_lock(eel_mutex);
-    MemoryMap<float> map(gmem_transfer_buffer.memory, 0, gmem_size);
+    MemoryMap<float> map(shared.gmem_transfer_buffer.memory, 0, gmem_size);
     auto dst = map.ptr.data();
     double **pblocks = *gmem;
     if (pblocks) {
@@ -532,7 +543,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
           }
 
           command_buffer.copyBuffer(
-              *gmem_transfer_buffer.buffer, *gmem_buffer.buffer,
+              *shared.gmem_transfer_buffer.buffer, *shared.gmem_buffer.buffer,
               {
                   {
                       .srcOffset = i * sizeof(float) * NSEEL_RAM_ITEMSPERBLOCK,
@@ -552,7 +563,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
                   .dstAccessMask = vk::AccessFlagBits::eShaderRead,
                   .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
                   .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-                  .buffer = *gmem_buffer.buffer,
+                  .buffer = *shared.gmem_buffer.buffer,
                   .size = VK_WHOLE_SIZE,
               },
           },
@@ -570,16 +581,17 @@ OglerVst::video_process_frame(std::span<const double> parms,
     uniforms.data.iChannelResolution_h = input_h;
     if (!input_image || input_w != input_image->width ||
         input_h != input_image->height) {
-      input_image = vulkan.create_image(
+      input_image = shared.vulkan.create_image(
           input_w, input_h, RGBAFormat, vk::ImageTiling::eOptimal,
           vk::ImageUsageFlagBits::eSampled |
               vk::ImageUsageFlagBits::eTransferDst);
-      input_transfer_buffer = vulkan.create_buffer(
+      input_transfer_buffer = shared.vulkan.create_buffer(
           {}, input_w * input_h * 4, vk::BufferUsageFlagBits::eTransferSrc,
           vk::SharingMode::eExclusive,
           vk::MemoryPropertyFlagBits::eHostVisible |
               vk::MemoryPropertyFlagBits::eHostCoherent);
-      input_image_view = vulkan.create_image_view(*input_image, RGBAFormat);
+      input_image_view =
+          shared.vulkan.create_image_view(*input_image, RGBAFormat);
     }
 
     {
@@ -620,15 +632,16 @@ OglerVst::video_process_frame(std::span<const double> parms,
     }
   } else if (!input_image || input_image->width * input_image->height != 1) {
     input_image =
-        vulkan.create_image(1, 1, RGBAFormat, vk::ImageTiling::eOptimal,
-                            vk::ImageUsageFlagBits::eSampled |
-                                vk::ImageUsageFlagBits::eTransferDst);
-    input_transfer_buffer = vulkan.create_buffer(
+        shared.vulkan.create_image(1, 1, RGBAFormat, vk::ImageTiling::eOptimal,
+                                   vk::ImageUsageFlagBits::eSampled |
+                                       vk::ImageUsageFlagBits::eTransferDst);
+    input_transfer_buffer = shared.vulkan.create_buffer(
         {}, 1 * 1 * 4, vk::BufferUsageFlagBits::eTransferSrc,
         vk::SharingMode::eExclusive,
         vk::MemoryPropertyFlagBits::eHostVisible |
             vk::MemoryPropertyFlagBits::eHostCoherent);
-    input_image_view = vulkan.create_image_view(*input_image, RGBAFormat);
+    input_image_view =
+        shared.vulkan.create_image_view(*input_image, RGBAFormat);
     transition_image_layout_upload(command_buffer, *input_image,
                                    vk::ImageLayout::eUndefined,
                                    vk::ImageLayout::eTransferDstOptimal);
@@ -649,7 +662,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
         .imageLayout = vk::ImageLayout::eGeneral,
     };
     vk::DescriptorBufferInfo gmem_buffer_info{
-        .buffer = *gmem_buffer.buffer,
+        .buffer = *shared.gmem_buffer.buffer,
         .offset = 0,
         .range = gmem_size * sizeof(float),
     };
@@ -681,12 +694,11 @@ OglerVst::video_process_frame(std::span<const double> parms,
         },
     };
 
-    vk::DescriptorBufferInfo uniforms_info{
-        .buffer = *params_buffer->buffer,
-        .range = sizeof(float) * parameters.size(),
-    };
-
     if (params_buffer) {
+      vk::DescriptorBufferInfo uniforms_info{
+          .buffer = *params_buffer->buffer,
+          .range = sizeof(float) * parameters.size(),
+      };
       {
         MemoryMap<float> params_map(params_buffer->memory, 0, parms.size() - 1);
         // keeping in mind parms[0] is iWet
@@ -703,7 +715,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
       });
     }
 
-    vulkan.device.updateDescriptorSets(write_descriptor_sets, {});
+    shared.vulkan.device.updateDescriptorSets(write_descriptor_sets, {});
   }
 
   command_buffer.bindPipeline(vk::PipelineBindPoint::eCompute,
@@ -773,9 +785,9 @@ OglerVst::video_process_frame(std::span<const double> parms,
       .pCommandBuffers = &*command_buffer,
   };
   queue.submit({SubmitInfo}, *fence);
-  auto res = vulkan.device.waitForFences({*fence},      // List of fences
-                                         true,          // Wait All
-                                         uint64_t(-1)); // Timeout
+  auto res = shared.vulkan.device.waitForFences({*fence},      // List of fences
+                                                true,          // Wait All
+                                                uint64_t(-1)); // Timeout
   assert(res == vk::Result::eSuccess);
 
   {
@@ -786,7 +798,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
                output_rowspan);
   }
 
-  vulkan.device.resetFences({*fence});
+  shared.vulkan.device.resetFences({*fence});
   command_buffer.reset();
 
   return output_frame;
