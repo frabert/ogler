@@ -34,6 +34,11 @@ int Scintilla_ReleaseResources();
 
 namespace ogler {
 HINSTANCE get_hinstance() { return hInstance; }
+
+std::unique_ptr<SharedVulkan> shared_vulkan;
+
+SharedVulkan &OglerVst::get_shared_vulkan() { return *shared_vulkan; }
+
 } // namespace ogler
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
@@ -44,11 +49,13 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
     if (!Scintilla_RegisterClasses(hInst)) {
       return false;
     }
+    ogler::shared_vulkan = std::make_unique<ogler::SharedVulkan>();
   } else if (dwReason == DLL_PROCESS_DETACH) {
     glslang::FinalizeProcess();
     if (lpvReserved == NULL) {
       Scintilla_ReleaseResources();
     }
+    ogler::shared_vulkan = nullptr;
   }
   return true;
 }

@@ -228,12 +228,6 @@ SharedVulkan::SharedVulkan()
                                vk::SharingMode::eExclusive,
                                vk::MemoryPropertyFlagBits::eDeviceLocal)) {}
 
-SharedVulkan &OglerVst::get_shared_vulkan() {
-  static SharedVulkan shared;
-
-  return shared;
-}
-
 OglerVst::OglerVst(vst::HostCallback *hostcb)
     : vst::ReaperVstPlugin<OglerVst>(hostcb), shared(get_shared_vulkan()),
       sampler(shared.vulkan.create_sampler()),
