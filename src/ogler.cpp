@@ -58,6 +58,13 @@ union UniformsView {
   std::array<float, sizeof(data) / sizeof(float)> values;
 };
 
+struct SpecializationData {
+  unsigned gmem_size;
+  int ogler_version_maj;
+  int ogler_version_min;
+  int ogler_version_rev;
+};
+
 struct OglerVst::Compute {
   vk::raii::ShaderModule shader;
   vk::raii::DescriptorSetLayout descriptor_set_layout;
@@ -66,23 +73,47 @@ struct OglerVst::Compute {
 
   vk::raii::PipelineCache pipeline_cache;
   vk::raii::PipelineLayout pipeline_layout;
-  std::array<vk::SpecializationMapEntry, 1> pipeline_spec_entries{
+  std::array<vk::SpecializationMapEntry, 4> pipeline_spec_entries{
       // OGLER_GMEM_SIZE
       vk::SpecializationMapEntry{
           .constantID = 0,
-          .offset = 0,
-          .size = sizeof(uint32_t),
+          .offset =
+              static_cast<uint32_t>(offsetof(SpecializationData, gmem_size)),
+          .size = sizeof(SpecializationData::gmem_size),
+      },
+      // OGLER_VERSION_MAJ
+      vk::SpecializationMapEntry{
+          .constantID = 1,
+          .offset = static_cast<uint32_t>(
+              offsetof(SpecializationData, ogler_version_maj)),
+          .size = sizeof(SpecializationData::ogler_version_maj),
+      },
+      // OGLER_VERSION_MIN
+      vk::SpecializationMapEntry{
+          .constantID = 2,
+          .offset = static_cast<uint32_t>(
+              offsetof(SpecializationData, ogler_version_min)),
+          .size = sizeof(SpecializationData::ogler_version_min),
+      },
+      // OGLER_VERSION_REV
+      vk::SpecializationMapEntry{
+          .constantID = 3,
+          .offset = static_cast<uint32_t>(
+              offsetof(SpecializationData, ogler_version_rev)),
+          .size = sizeof(SpecializationData::ogler_version_rev),
       },
   };
-  std::array<unsigned, 1> pipeline_spec_data{
-      // OGLER_GMEM_SIZE
-      gmem_size,
+  SpecializationData pipeline_spec_data{
+      .gmem_size = gmem_size,
+      .ogler_version_maj = version::major,
+      .ogler_version_min = version::minor,
+      .ogler_version_rev = version::revision,
   };
   vk::SpecializationInfo pipeline_spec_info{
       .mapEntryCount = static_cast<uint32_t>(pipeline_spec_entries.size()),
       .pMapEntries = pipeline_spec_entries.data(),
       .dataSize = static_cast<uint32_t>(sizeof(pipeline_spec_data)),
-      .pData = pipeline_spec_data.data(),
+      .pData = &pipeline_spec_data,
   };
   vk::raii::Pipeline pipeline;
 
@@ -264,6 +295,9 @@ std::optional<std::string> OglerVst::recompile_shaders() {
 #define OGLER_PARAMS layout(binding = OGLER_PARAMS_BINDING) uniform Params
 
 layout (constant_id = 0) const uint OGLER_GMEM_SIZE = 0;
+layout (constant_id = 1) const int OGLER_VERSION_MAJ = 0;
+layout (constant_id = 2) const int OGLER_VERSION_MIN = 0;
+layout (constant_id = 3) const int OGLER_VERSION_REV = 0;
 
 layout(local_size_x = 1, local_size_y = 1) in;
 
@@ -646,6 +680,11 @@ OglerVst::video_process_frame(std::span<const double> parms,
         },
     };
 
+    vk::DescriptorBufferInfo uniforms_info{
+        .buffer = *params_buffer->buffer,
+        .range = sizeof(float) * parameters.size(),
+    };
+
     if (params_buffer) {
       {
         MemoryMap<float> params_map(params_buffer->memory, 0, parms.size() - 1);
@@ -654,10 +693,6 @@ OglerVst::video_process_frame(std::span<const double> parms,
           params_map.ptr[i] = parms[i + 1];
         }
       }
-      vk::DescriptorBufferInfo uniforms_info{
-          .buffer = *params_buffer->buffer,
-          .range = sizeof(float) * parameters.size(),
-      };
       write_descriptor_sets.push_back({
           .dstSet = *compute->descriptor_set,
           .dstBinding = 3,
