@@ -358,7 +358,11 @@ layout(binding = 3) buffer readonly Gmem {
     });
   }
 
-  compute = std::make_unique<Compute>(shared.vulkan, data.spirv_code);
+  try {
+    compute = std::make_unique<Compute>(shared.vulkan, data.spirv_code);
+  } catch (vk::Error &e) {
+    return e.what();
+  }
   get_effect()->numParams = parameters.size();
   if (old_num != parameters.size()) {
     this->adjust_params_num(0, -old_num);
