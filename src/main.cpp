@@ -49,7 +49,6 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
     if (!Scintilla_RegisterClasses(hInst)) {
       return false;
     }
-    ogler::shared_vulkan = std::make_unique<ogler::SharedVulkan>();
   } else if (dwReason == DLL_PROCESS_DETACH) {
     glslang::FinalizeProcess();
     if (lpvReserved == NULL) {
@@ -62,6 +61,9 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
 
 extern "C" __declspec(dllexport) vst::AEffect *VSTPluginMain(
     vst::HostCallback *callback) {
+  if (!ogler::shared_vulkan) {
+    ogler::shared_vulkan = std::make_unique<ogler::SharedVulkan>();
+  }
   auto plugin = new ogler::OglerVst(callback);
   return plugin->get_effect();
 }
