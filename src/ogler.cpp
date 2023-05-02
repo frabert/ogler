@@ -122,28 +122,28 @@ struct OglerVst::Compute {
     std::vector<vk::DescriptorSetLayoutBinding> bindings = {
         // Input texture
         {
-            .binding = 0,
+            .binding = 1,
             .descriptorType = vk::DescriptorType::eCombinedImageSampler,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute,
         },
         // Output texture
         {
-            .binding = 1,
+            .binding = 2,
             .descriptorType = vk::DescriptorType::eStorageImage,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute,
         },
         // gmem
         {
-            .binding = 2,
+            .binding = 3,
             .descriptorType = vk::DescriptorType::eStorageBuffer,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute,
         },
         // Params
         {
-            .binding = 3,
+            .binding = 0,
             .descriptorType = vk::DescriptorType::eUniformBuffer,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute,
@@ -291,7 +291,7 @@ std::optional<std::string> OglerVst::recompile_shaders() {
   std::unique_lock<std::recursive_mutex> lock(params_mutex);
 
   auto res = compile_shader({{"<preamble>", R"(#version 460
-#define OGLER_PARAMS_BINDING 3
+#define OGLER_PARAMS_BINDING 0
 #define OGLER_PARAMS layout(binding = OGLER_PARAMS_BINDING) uniform Params
 
 layout (constant_id = 0) const uint OGLER_GMEM_SIZE = 0;
@@ -309,9 +309,9 @@ layout(push_constant) uniform UniformBlock {
   float iFrameRate;
   float iWet;
 };
-layout(binding = 0) uniform sampler2D iChannel;
-layout(binding = 1, rgba8) uniform writeonly image2D oChannel;
-layout(binding = 2) buffer readonly Gmem {
+layout(binding = 1) uniform sampler2D iChannel;
+layout(binding = 2, rgba8) uniform writeonly image2D oChannel;
+layout(binding = 3) buffer readonly Gmem {
   float gmem[];
 };
 )"},
@@ -320,7 +320,8 @@ layout(binding = 2) buffer readonly Gmem {
     vec4 fragColor;
     mainImage(fragColor, vec2(gl_GlobalInvocationID));
     imageStore(oChannel, ivec2(gl_GlobalInvocationID), fragColor);
-})"}});
+})"}},
+                            /*params_binding=*/0);
   if (std::holds_alternative<std::string>(res)) {
     return std::move(std::get<std::string>(res));
   }
@@ -657,7 +658,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
         // Input texture
         {
             .dstSet = *compute->descriptor_set,
-            .dstBinding = 0,
+            .dstBinding = 1,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eCombinedImageSampler,
             .pImageInfo = &input_image_info,
@@ -665,7 +666,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
         // Output texture
         {
             .dstSet = *compute->descriptor_set,
-            .dstBinding = 1,
+            .dstBinding = 2,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageImage,
             .pImageInfo = &output_image_info,
@@ -673,7 +674,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
         // gmem
         {
             .dstSet = *compute->descriptor_set,
-            .dstBinding = 2,
+            .dstBinding = 3,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eStorageBuffer,
             .pBufferInfo = &gmem_buffer_info,
@@ -695,7 +696,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
       }
       write_descriptor_sets.push_back({
           .dstSet = *compute->descriptor_set,
-          .dstBinding = 3,
+          .dstBinding = 0,
           .descriptorCount = 1,
           .descriptorType = vk::DescriptorType::eUniformBuffer,
           .pBufferInfo = &uniforms_info,

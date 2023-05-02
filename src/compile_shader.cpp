@@ -151,6 +151,7 @@ class ParamCollector : public glslang::TIntermTraverser {
   std::vector<ParameterInfo> &params;
   int &output_width;
   int &output_height;
+  int params_binding;
 
   ParameterInfo *find_param(const std::string &name) {
     for (auto &param : params) {
@@ -167,9 +168,9 @@ class ParamCollector : public glslang::TIntermTraverser {
   }
 
 public:
-  ParamCollector(ShaderData &data)
+  ParamCollector(ShaderData &data, int params_binding)
       : params(data.parameters), output_width(data.output_width),
-        output_height(data.output_height) {}
+        output_height(data.output_height), params_binding(params_binding) {}
 
   void visitSymbol(glslang::TIntermSymbol *sym) final {
     auto &type = sym->getType();
@@ -177,11 +178,12 @@ public:
     bool isArray = sym->isArray();
     bool isVector = sym->isVector();
     if (sym->getBasicType() == glslang::EbtBlock &&
-        type.getQualifier().layoutBinding == 2) {
+        type.getQualifier().layoutBinding == params_binding) {
       for (auto &field : *type.getStruct()) {
         auto ftype = field.type->getBasicType();
         auto &fname = field.type->getFieldName();
-        if (ftype != glslang::EbtFloat) {
+        if (ftype != glslang::EbtFloat && field.type->isArray() ||
+            field.type->isVector()) {
           std::stringstream errmsg;
           errmsg << "ERROR: " << field.loc.getStringNameOrNum(false) << ':'
                  << field.loc.line
@@ -275,7 +277,8 @@ public:
 };
 
 std::variant<ShaderData, std::string>
-compile_shader(const std::vector<std::pair<std::string, std::string>> &source) {
+compile_shader(const std::vector<std::pair<std::string, std::string>> &source,
+               int params_binding) {
   glslang::TShader shader(EShLangCompute);
   std::vector<const char *> sources;
   std::vector<const char *> names;
@@ -302,7 +305,7 @@ compile_shader(const std::vector<std::pair<std::string, std::string>> &source) {
   }
 
   ShaderData data;
-  ParamCollector collector(data);
+  ParamCollector collector(data, params_binding);
   auto iterm = prog.getIntermediate(EShLangCompute);
   try {
     iterm->getTreeRoot()->traverse(&collector);

@@ -43,5 +43,6 @@ struct ShaderData {
 };
 
 std::variant<ShaderData, std::string>
-compile_shader(const std::vector<std::pair<std::string, std::string>> &source);
+compile_shader(const std::vector<std::pair<std::string, std::string>> &source,
+               int params_binding);
 } // namespace ogler
