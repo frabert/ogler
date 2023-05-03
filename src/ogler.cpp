@@ -35,9 +35,13 @@
 
 #include <WDL/eel2/ns-eel.h>
 
+#undef min
+
 namespace ogler {
 
 static constexpr vk::Format RGBAFormat = vk::Format::eB8G8R8A8Unorm;
+
+static constexpr unsigned max_num_inputs = 64;
 
 static constexpr uint32_t gmem_size =
     NSEEL_RAM_BLOCKS * NSEEL_RAM_ITEMSPERBLOCK;
@@ -46,9 +50,9 @@ struct Uniforms {
   float iResolution_w, iResolution_h;
   float iTime;
   float iSampleRate;
-  float iChannelResolution_w, iChannelResolution_h;
   float iFrameRate;
   float iWet;
+  int num_inputs;
 };
 static_assert(sizeof(Uniforms) < 128,
               "Keep this under 128 bytes to ensure compatibility!");
@@ -74,28 +78,28 @@ struct OglerVst::Compute {
   vk::raii::PipelineCache pipeline_cache;
   vk::raii::PipelineLayout pipeline_layout;
   std::array<vk::SpecializationMapEntry, 4> pipeline_spec_entries{
-      // OGLER_GMEM_SIZE
+      // ogler_gmem_size
       vk::SpecializationMapEntry{
           .constantID = 0,
           .offset =
               static_cast<uint32_t>(offsetof(SpecializationData, gmem_size)),
           .size = sizeof(SpecializationData::gmem_size),
       },
-      // OGLER_VERSION_MAJ
+      // ogler_version_maj
       vk::SpecializationMapEntry{
           .constantID = 1,
           .offset = static_cast<uint32_t>(
               offsetof(SpecializationData, ogler_version_maj)),
           .size = sizeof(SpecializationData::ogler_version_maj),
       },
-      // OGLER_VERSION_MIN
+      // ogler_version_min
       vk::SpecializationMapEntry{
           .constantID = 2,
           .offset = static_cast<uint32_t>(
               offsetof(SpecializationData, ogler_version_min)),
           .size = sizeof(SpecializationData::ogler_version_min),
       },
-      // OGLER_VERSION_REV
+      // ogler_version_rev
       vk::SpecializationMapEntry{
           .constantID = 3,
           .offset = static_cast<uint32_t>(
@@ -124,7 +128,7 @@ struct OglerVst::Compute {
         {
             .binding = 1,
             .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-            .descriptorCount = 1,
+            .descriptorCount = max_num_inputs,
             .stageFlags = vk::ShaderStageFlagBits::eCompute,
         },
         // Output texture
@@ -138,6 +142,13 @@ struct OglerVst::Compute {
         {
             .binding = 3,
             .descriptorType = vk::DescriptorType::eStorageBuffer,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
+        // iChannelResolution[]
+        {
+            .binding = 4,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute,
         },
@@ -162,7 +173,7 @@ struct OglerVst::Compute {
         // Input texture
         {
             .type = vk::DescriptorType::eCombinedImageSampler,
-            .descriptorCount = 1,
+            .descriptorCount = max_num_inputs,
         },
         // Output texture
         {
@@ -172,6 +183,11 @@ struct OglerVst::Compute {
         // gmem
         {
             .type = vk::DescriptorType::eStorageBuffer,
+            .descriptorCount = 1,
+        },
+        // iChannelResolution[]
+        {
+            .type = vk::DescriptorType::eUniformBuffer,
             .descriptorCount = 1,
         },
         // Params
@@ -230,9 +246,9 @@ SharedVulkan::SharedVulkan()
 
 OglerVst::OglerVst(vst::HostCallback *hostcb)
     : vst::ReaperVstPlugin<OglerVst>(hostcb), shared(get_shared_vulkan()),
-      sampler(shared.vulkan.create_sampler()),
       command_buffer(shared.vulkan.create_command_buffer()),
       queue(shared.vulkan.get_queue(0)), fence(shared.vulkan.create_fence()),
+      sampler(shared.vulkan.create_sampler()),
       output_transfer_buffer(shared.vulkan.create_buffer(
           {}, output_width * output_height * 4,
           vk::BufferUsageFlagBits::eTransferDst, vk::SharingMode::eExclusive,
@@ -244,6 +260,12 @@ OglerVst::OglerVst(vst::HostCallback *hostcb)
               vk::ImageUsageFlagBits::eTransferSrc)),
       output_image_view(
           shared.vulkan.create_image_view(output_image, RGBAFormat)),
+      empty_input(create_input_image(1, 1)),
+      input_resolution_buffer(shared.vulkan.create_buffer(
+          {}, max_num_inputs * sizeof(float) * 2,
+          vk::BufferUsageFlagBits::eUniformBuffer, vk::SharingMode::eExclusive,
+          vk::MemoryPropertyFlagBits::eHostCoherent |
+              vk::MemoryPropertyFlagBits::eHostVisible)),
       eel_mutex(
           get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_EnterMutex"),
           get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_LEAVEMutex")) {
@@ -298,10 +320,10 @@ std::optional<std::string> OglerVst::recompile_shaders() {
 #define OGLER_PARAMS_BINDING 0
 #define OGLER_PARAMS layout(binding = OGLER_PARAMS_BINDING) uniform Params
 
-layout (constant_id = 0) const uint OGLER_GMEM_SIZE = 0;
-layout (constant_id = 1) const int OGLER_VERSION_MAJ = 0;
-layout (constant_id = 2) const int OGLER_VERSION_MIN = 0;
-layout (constant_id = 3) const int OGLER_VERSION_REV = 0;
+layout (constant_id = 0) const uint ogler_gmem_size = 0;
+layout (constant_id = 1) const int ogler_version_maj = 0;
+layout (constant_id = 2) const int ogler_version_min = 0;
+layout (constant_id = 3) const int ogler_version_rev = 0;
 
 layout(local_size_x = 1, local_size_y = 1) in;
 
@@ -309,14 +331,17 @@ layout(push_constant) uniform UniformBlock {
   vec2 iResolution;
   float iTime;
   float iSampleRate;
-  vec2 iChannelResolution;
   float iFrameRate;
   float iWet;
+  int ogler_num_inputs;
 };
-layout(binding = 1) uniform sampler2D iChannel;
+layout(binding = 1) uniform sampler2D iChannel[];
 layout(binding = 2, rgba8) uniform writeonly image2D oChannel;
 layout(binding = 3) buffer readonly Gmem {
   float gmem[];
+};
+layout(binding = 4) uniform InputSizes {
+  vec2 iChannelResolution[];
 };
 )"},
                              {"<source>", data.video_shader},
@@ -480,6 +505,24 @@ static void copy_image(std::span<char> src_span, std::span<char> dst_span,
   }
 }
 
+InputImage OglerVst::create_input_image(int w, int h) {
+  auto img = shared.vulkan.create_image(
+      w, h, RGBAFormat, vk::ImageTiling::eOptimal,
+      vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled);
+  auto buf = shared.vulkan.create_buffer(
+      {}, w * h * 4, vk::BufferUsageFlagBits::eTransferSrc,
+      vk::SharingMode::eExclusive,
+      vk::MemoryPropertyFlagBits::eHostVisible |
+          vk::MemoryPropertyFlagBits::eHostCoherent);
+  auto view = shared.vulkan.create_image_view(img, RGBAFormat);
+
+  return {
+      .image = std::move(img),
+      .transfer_buffer = std::move(buf),
+      .view = std::move(view),
+  };
+}
+
 IVideoFrame *
 OglerVst::video_process_frame(std::span<const double> parms,
                               double project_time, double framerate,
@@ -500,6 +543,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
   auto output_h = output_frame->get_h();
   assert(output_w == output_width);
   assert(output_h == output_height);
+  auto num_inputs = get_video_num_inputs();
 
   UniformsView uniforms{
       .data =
@@ -508,10 +552,10 @@ OglerVst::video_process_frame(std::span<const double> parms,
               .iResolution_h = static_cast<float>(output_height),
               .iTime = static_cast<float>(project_time),
               .iSampleRate = 0,
-              .iChannelResolution_w = 1,
-              .iChannelResolution_h = 1,
               .iFrameRate = static_cast<float>(framerate),
               .iWet = static_cast<float>(parms[0]),
+              .num_inputs =
+                  std::min({static_cast<int>(max_num_inputs), num_inputs}),
           },
   };
 
@@ -523,9 +567,6 @@ OglerVst::video_process_frame(std::span<const double> parms,
   }
 
   transition_image_layout_download(command_buffer, output_image);
-
-  auto num_inputs = get_video_num_inputs();
-  IVideoFrame *input_frame{};
 
   {
     std::unique_lock<EELMutex> eel_lock(eel_mutex);
@@ -569,91 +610,88 @@ OglerVst::video_process_frame(std::span<const double> parms,
     }
   }
 
-  if (num_inputs > 0 &&
-      (input_frame = get_video_input(0, vst::FrameFormat::RGBA))) {
-    auto input_w = input_frame->get_w();
-    auto input_h = input_frame->get_h();
-    auto input_rowspan = input_frame->get_rowspan();
-    auto input_bits = get_frame_bits(input_frame);
-    uniforms.data.iChannelResolution_w = input_w;
-    uniforms.data.iChannelResolution_h = input_h;
-    if (!input_image || input_w != input_image->width ||
-        input_h != input_image->height) {
-      input_image = shared.vulkan.create_image(
-          input_w, input_h, RGBAFormat, vk::ImageTiling::eOptimal,
-          vk::ImageUsageFlagBits::eSampled |
-              vk::ImageUsageFlagBits::eTransferDst);
-      input_transfer_buffer = shared.vulkan.create_buffer(
-          {}, input_w * input_h * 4, vk::BufferUsageFlagBits::eTransferSrc,
-          vk::SharingMode::eExclusive,
-          vk::MemoryPropertyFlagBits::eHostVisible |
-              vk::MemoryPropertyFlagBits::eHostCoherent);
-      input_image_view =
-          shared.vulkan.create_image_view(*input_image, RGBAFormat);
-    }
+  transition_image_layout_upload(command_buffer, empty_input.image,
+                                 vk::ImageLayout::eUndefined,
+                                 vk::ImageLayout::eTransferDstOptimal);
+  transition_image_layout_upload(command_buffer, empty_input.image,
+                                 vk::ImageLayout::eTransferDstOptimal,
+                                 vk::ImageLayout::eShaderReadOnlyOptimal);
 
-    {
-      MemoryMap map(input_transfer_buffer->memory, 0,
-                    input_transfer_buffer->size);
-      copy_image(input_bits, map.ptr, input_w, input_h, input_rowspan,
-                 input_w * 4);
-    }
-
-    {
-      transition_image_layout_upload(command_buffer, *input_image,
-                                     vk::ImageLayout::eUndefined,
-                                     vk::ImageLayout::eTransferDstOptimal);
-
-      vk::BufferImageCopy region{
-          .bufferOffset = 0,
-          .bufferRowLength = 0,
-          .bufferImageHeight = 0,
-          .imageSubresource =
-              {
-                  .aspectMask = vk::ImageAspectFlagBits::eColor,
-                  .layerCount = 1,
-              },
-          .imageExtent =
-              {
-                  .width = static_cast<uint32_t>(input_w),
-                  .height = static_cast<uint32_t>(input_h),
-                  .depth = 1,
-              },
+  std::array<std::pair<float, float>, max_num_inputs> input_resolution;
+  std::array<vk::DescriptorImageInfo, max_num_inputs> input_image_info;
+  for (size_t i = 0; i < max_num_inputs; ++i) {
+    auto input_frame = get_video_input(i, vst::FrameFormat::RGBA);
+    if (!input_frame) {
+      input_resolution[i] = {1, 1};
+      input_image_info[i] = {
+          .sampler = *sampler,
+          .imageView = *empty_input.view,
+          .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
       };
-      command_buffer.copyBufferToImage(
-          *input_transfer_buffer->buffer, *input_image->image,
-          vk::ImageLayout::eTransferDstOptimal, {region});
+    } else {
+      auto input_w = input_frame->get_w();
+      auto input_h = input_frame->get_h();
+      auto input_rowspan = input_frame->get_rowspan();
+      auto input_bits = get_frame_bits(input_frame);
 
-      transition_image_layout_upload(command_buffer, *input_image,
-                                     vk::ImageLayout::eTransferDstOptimal,
-                                     vk::ImageLayout::eShaderReadOnlyOptimal);
+      if (i >= input_images.size()) {
+        input_images.push_back(create_input_image(input_w, input_h));
+      }
+
+      auto &input_image = input_images[i];
+
+      if (input_image.image.width != input_w ||
+          input_image.image.height != input_h) {
+        input_image = create_input_image(input_w, input_h);
+      }
+
+      input_resolution[i] = {input_w, input_h};
+      input_image_info[i] = {
+          .sampler = *sampler,
+          .imageView = *input_image.view,
+          .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
+      };
+
+      {
+        MemoryMap map(input_image.transfer_buffer.memory, 0,
+                      input_image.transfer_buffer.size);
+        copy_image(input_bits, map.ptr, input_w, input_h, input_rowspan,
+                   input_w * 4);
+      }
+
+      {
+        transition_image_layout_upload(command_buffer, input_image.image,
+                                       vk::ImageLayout::eUndefined,
+                                       vk::ImageLayout::eTransferDstOptimal);
+
+        vk::BufferImageCopy region{
+            .bufferOffset = 0,
+            .bufferRowLength = 0,
+            .bufferImageHeight = 0,
+            .imageSubresource =
+                {
+                    .aspectMask = vk::ImageAspectFlagBits::eColor,
+                    .layerCount = 1,
+                },
+            .imageExtent =
+                {
+                    .width = static_cast<uint32_t>(input_w),
+                    .height = static_cast<uint32_t>(input_h),
+                    .depth = 1,
+                },
+        };
+        command_buffer.copyBufferToImage(
+            *input_image.transfer_buffer.buffer, *input_image.image.image,
+            vk::ImageLayout::eTransferDstOptimal, {region});
+
+        transition_image_layout_upload(command_buffer, input_image.image,
+                                       vk::ImageLayout::eTransferDstOptimal,
+                                       vk::ImageLayout::eShaderReadOnlyOptimal);
+      }
     }
-  } else if (!input_image || input_image->width * input_image->height != 1) {
-    input_image =
-        shared.vulkan.create_image(1, 1, RGBAFormat, vk::ImageTiling::eOptimal,
-                                   vk::ImageUsageFlagBits::eSampled |
-                                       vk::ImageUsageFlagBits::eTransferDst);
-    input_transfer_buffer = shared.vulkan.create_buffer(
-        {}, 1 * 1 * 4, vk::BufferUsageFlagBits::eTransferSrc,
-        vk::SharingMode::eExclusive,
-        vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent);
-    input_image_view =
-        shared.vulkan.create_image_view(*input_image, RGBAFormat);
-    transition_image_layout_upload(command_buffer, *input_image,
-                                   vk::ImageLayout::eUndefined,
-                                   vk::ImageLayout::eTransferDstOptimal);
-    transition_image_layout_upload(command_buffer, *input_image,
-                                   vk::ImageLayout::eTransferDstOptimal,
-                                   vk::ImageLayout::eShaderReadOnlyOptimal);
   }
 
   {
-    vk::DescriptorImageInfo input_image_info{
-        .sampler = *sampler,
-        .imageView = **input_image_view,
-        .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
-    };
     vk::DescriptorImageInfo output_image_info{
         .sampler = *sampler,
         .imageView = *output_image_view,
@@ -664,15 +702,20 @@ OglerVst::video_process_frame(std::span<const double> parms,
         .offset = 0,
         .range = gmem_size * sizeof(float),
     };
+    vk::DescriptorBufferInfo input_resolution_info{
+        .buffer = *input_resolution_buffer.buffer,
+        .offset = 0,
+        .range = sizeof(input_resolution),
+    };
 
     std ::vector<vk::WriteDescriptorSet> write_descriptor_sets = {
         // Input texture
         {
             .dstSet = *compute->descriptor_set,
             .dstBinding = 1,
-            .descriptorCount = 1,
+            .descriptorCount = max_num_inputs,
             .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-            .pImageInfo = &input_image_info,
+            .pImageInfo = input_image_info.data(),
         },
         // Output texture
         {
@@ -690,7 +733,22 @@ OglerVst::video_process_frame(std::span<const double> parms,
             .descriptorType = vk::DescriptorType::eStorageBuffer,
             .pBufferInfo = &gmem_buffer_info,
         },
+        // iChannelResolution[]
+        {
+            .dstSet = *compute->descriptor_set,
+            .dstBinding = 4,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
+            .pBufferInfo = &input_resolution_info,
+        },
     };
+
+    {
+      MemoryMap<std::pair<float, float>> res_map(input_resolution_buffer.memory,
+                                                 0, max_num_inputs);
+      std::copy(input_resolution.begin(), input_resolution.end(),
+                res_map.ptr.begin());
+    }
 
     if (params_buffer) {
       vk::DescriptorBufferInfo uniforms_info{

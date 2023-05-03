@@ -84,6 +84,12 @@ struct SharedVulkan {
   SharedVulkan();
 };
 
+struct InputImage {
+  Image image;
+  Buffer transfer_buffer;
+  vk::raii::ImageView view;
+};
+
 class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   int output_width = 1024;
   int output_height = 768;
@@ -100,11 +106,12 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   Image output_image;
   vk::raii::ImageView output_image_view;
 
-  std::optional<Buffer> input_transfer_buffer;
-  std::optional<Image> input_image;
-  std::optional<vk::raii::ImageView> input_image_view;
+  InputImage empty_input;
+  std::vector<InputImage> input_images;
 
   std::optional<Buffer> params_buffer;
+
+  Buffer input_resolution_buffer;
 
   struct Compute;
   std::unique_ptr<Compute> compute;
@@ -129,6 +136,8 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
 
   EELMutex eel_mutex;
   double ***gmem{};
+
+  InputImage create_input_image(int w, int h);
 
 public:
   static constexpr int num_programs = 0;
