@@ -35,9 +35,10 @@ int Scintilla_ReleaseResources();
 namespace ogler {
 HINSTANCE get_hinstance() { return hInstance; }
 
-std::unique_ptr<SharedVulkan> shared_vulkan;
-
-SharedVulkan &OglerVst::get_shared_vulkan() { return *shared_vulkan; }
+SharedVulkan &OglerVst::get_shared_vulkan() {
+  static SharedVulkan shared_vulkan;
+  return shared_vulkan;
+}
 
 } // namespace ogler
 
@@ -54,16 +55,12 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
     if (lpvReserved == NULL) {
       Scintilla_ReleaseResources();
     }
-    ogler::shared_vulkan = nullptr;
   }
   return true;
 }
 
 extern "C" __declspec(dllexport) vst::AEffect *VSTPluginMain(
     vst::HostCallback *callback) {
-  if (!ogler::shared_vulkan) {
-    ogler::shared_vulkan = std::make_unique<ogler::SharedVulkan>();
-  }
   auto plugin = new ogler::OglerVst(callback);
   return plugin->get_effect();
 }
