@@ -105,6 +105,8 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   Buffer output_transfer_buffer;
   Image output_image;
   vk::raii::ImageView output_image_view;
+  Image previous_image;
+  vk::raii::ImageView previous_image_view;
 
   InputImage empty_input;
   std::vector<InputImage> input_images;
@@ -138,6 +140,29 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   double ***gmem{};
 
   InputImage create_input_image(int w, int h);
+
+  template <typename Func> void one_shot_execute(Func f) {
+    {
+      vk::CommandBufferBeginInfo begin_info{
+          .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit,
+      };
+      command_buffer.begin(begin_info);
+    }
+    f();
+    command_buffer.end();
+
+    vk::SubmitInfo SubmitInfo{
+        .commandBufferCount = 1,
+        .pCommandBuffers = &*command_buffer,
+    };
+    queue.submit({SubmitInfo}, *fence);
+    auto res = shared.vulkan.device.waitForFences({*fence}, // List of fences
+                                                  true,     // Wait All
+                                                  uint64_t(-1)); // Timeout
+    assert(res == vk::Result::eSuccess);
+    shared.vulkan.device.resetFences({*fence});
+    command_buffer.reset();
+  }
 
 public:
   static constexpr int num_programs = 0;

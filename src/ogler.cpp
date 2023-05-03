@@ -152,6 +152,13 @@ struct OglerVst::Compute {
             .descriptorCount = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute,
         },
+        // ogler_previous_frame
+        {
+            .binding = 5,
+            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+            .descriptorCount = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute,
+        },
         // Params
         {
             .binding = 0,
@@ -188,6 +195,11 @@ struct OglerVst::Compute {
         // iChannelResolution[]
         {
             .type = vk::DescriptorType::eUniformBuffer,
+            .descriptorCount = 1,
+        },
+        // ogler_previous_frame
+        {
+            .type = vk::DescriptorType::eCombinedImageSampler,
             .descriptorCount = 1,
         },
         // Params
@@ -244,6 +256,35 @@ SharedVulkan::SharedVulkan()
                                vk::SharingMode::eExclusive,
                                vk::MemoryPropertyFlagBits::eDeviceLocal)) {}
 
+static void transition_image_layout_download(vk::raii::CommandBuffer &cmd,
+                                             Image &image) {
+  auto old_layout = vk::ImageLayout::eUndefined;
+  auto new_layout = vk::ImageLayout::eGeneral;
+
+  vk::ImageMemoryBarrier barrier{
+      .oldLayout = old_layout,
+      .newLayout = new_layout,
+      .image = *image.image,
+      .subresourceRange =
+          {
+              .aspectMask = vk::ImageAspectFlagBits::eColor,
+              .levelCount = 1,
+              .layerCount = 1,
+          },
+  };
+
+  vk::PipelineStageFlags sourceStage;
+  vk::PipelineStageFlags destinationStage;
+
+  barrier.setSrcAccessMask({});
+  barrier.setDstAccessMask(vk::AccessFlagBits::eTransferRead);
+
+  sourceStage = vk::PipelineStageFlagBits::eComputeShader;
+  destinationStage = vk::PipelineStageFlagBits::eTransfer;
+
+  cmd.pipelineBarrier(sourceStage, destinationStage, {}, {}, {}, {barrier});
+}
+
 OglerVst::OglerVst(vst::HostCallback *hostcb)
     : vst::ReaperVstPlugin<OglerVst>(hostcb), shared(get_shared_vulkan()),
       command_buffer(shared.vulkan.create_command_buffer()),
@@ -257,9 +298,17 @@ OglerVst::OglerVst(vst::HostCallback *hostcb)
       output_image(shared.vulkan.create_image(
           output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
           vk::ImageUsageFlagBits::eStorage |
-              vk::ImageUsageFlagBits::eTransferSrc)),
+              vk::ImageUsageFlagBits::eTransferSrc |
+              vk::ImageUsageFlagBits::eSampled)),
       output_image_view(
           shared.vulkan.create_image_view(output_image, RGBAFormat)),
+      previous_image(shared.vulkan.create_image(
+          output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
+          vk::ImageUsageFlagBits::eStorage |
+              vk::ImageUsageFlagBits::eTransferSrc |
+              vk::ImageUsageFlagBits::eSampled)),
+      previous_image_view(
+          shared.vulkan.create_image_view(previous_image, RGBAFormat)),
       empty_input(create_input_image(1, 1)),
       input_resolution_buffer(shared.vulkan.create_buffer(
           {}, max_num_inputs * sizeof(float) * 2,
@@ -269,6 +318,12 @@ OglerVst::OglerVst(vst::HostCallback *hostcb)
       eel_mutex(
           get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_EnterMutex"),
           get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_LEAVEMutex")) {
+
+  one_shot_execute([&]() {
+    transition_image_layout_download(command_buffer, output_image);
+    transition_image_layout_download(command_buffer, previous_image);
+  });
+
   if (auto err = recompile_shaders()) {
     DBG << *err << '\n';
   }
@@ -343,6 +398,7 @@ layout(binding = 3) buffer readonly Gmem {
 layout(binding = 4) uniform InputSizes {
   vec2 iChannelResolution[];
 };
+layout(binding = 5) uniform sampler2D ogler_previous_frame;
 )"},
                              {"<source>", data.video_shader},
                              {"<epilogue>", R"(void main() {
@@ -369,9 +425,23 @@ layout(binding = 4) uniform InputSizes {
     output_image = shared.vulkan.create_image(
         output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
         vk::ImageUsageFlagBits::eStorage |
-            vk::ImageUsageFlagBits::eTransferSrc);
+            vk::ImageUsageFlagBits::eTransferSrc |
+            vk::ImageUsageFlagBits::eSampled);
     output_image_view =
         shared.vulkan.create_image_view(output_image, RGBAFormat);
+
+    previous_image = shared.vulkan.create_image(
+        output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
+        vk::ImageUsageFlagBits::eStorage |
+            vk::ImageUsageFlagBits::eTransferSrc |
+            vk::ImageUsageFlagBits::eSampled);
+    previous_image_view =
+        shared.vulkan.create_image_view(previous_image, RGBAFormat);
+
+    one_shot_execute([&]() {
+      transition_image_layout_download(command_buffer, output_image);
+      transition_image_layout_download(command_buffer, previous_image);
+    });
   }
 
   int old_num = parameters.size();
@@ -458,35 +528,6 @@ static void transition_image_layout_upload(vk::raii::CommandBuffer &cmd,
   cmd.pipelineBarrier(sourceStage, destinationStage, {}, {}, {}, {barrier});
 }
 
-static void transition_image_layout_download(vk::raii::CommandBuffer &cmd,
-                                             Image &image) {
-  auto old_layout = vk::ImageLayout::eUndefined;
-  auto new_layout = vk::ImageLayout::eGeneral;
-
-  vk::ImageMemoryBarrier barrier{
-      .oldLayout = old_layout,
-      .newLayout = new_layout,
-      .image = *image.image,
-      .subresourceRange =
-          {
-              .aspectMask = vk::ImageAspectFlagBits::eColor,
-              .levelCount = 1,
-              .layerCount = 1,
-          },
-  };
-
-  vk::PipelineStageFlags sourceStage;
-  vk::PipelineStageFlags destinationStage;
-
-  barrier.setSrcAccessMask({});
-  barrier.setDstAccessMask(vk::AccessFlagBits::eTransferRead);
-
-  sourceStage = vk::PipelineStageFlagBits::eComputeShader;
-  destinationStage = vk::PipelineStageFlagBits::eTransfer;
-
-  cmd.pipelineBarrier(sourceStage, destinationStage, {}, {}, {}, {barrier});
-}
-
 static std::span<char> get_frame_bits(IVideoFrame *frame) {
   return std::span<char>(frame->get_bits(),
                          frame->get_rowspan() * frame->get_h());
@@ -565,8 +606,6 @@ OglerVst::video_process_frame(std::span<const double> parms,
     };
     command_buffer.begin(begin_info);
   }
-
-  transition_image_layout_download(command_buffer, output_image);
 
   {
     std::unique_lock<EELMutex> eel_lock(eel_mutex);
@@ -707,6 +746,11 @@ OglerVst::video_process_frame(std::span<const double> parms,
         .offset = 0,
         .range = sizeof(input_resolution),
     };
+    vk::DescriptorImageInfo previous_frame_info{
+        .sampler = *sampler,
+        .imageView = *previous_image_view,
+        .imageLayout = vk::ImageLayout::eGeneral,
+    };
 
     std ::vector<vk::WriteDescriptorSet> write_descriptor_sets = {
         // Input texture
@@ -740,6 +784,14 @@ OglerVst::video_process_frame(std::span<const double> parms,
             .descriptorCount = 1,
             .descriptorType = vk::DescriptorType::eUniformBuffer,
             .pBufferInfo = &input_resolution_info,
+        },
+        // ogler_previous_frame
+        {
+            .dstSet = *compute->descriptor_set,
+            .dstBinding = 5,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
+            .pImageInfo = &previous_frame_info,
         },
     };
 
@@ -856,6 +908,9 @@ OglerVst::video_process_frame(std::span<const double> parms,
 
   shared.vulkan.device.resetFences({*fence});
   command_buffer.reset();
+
+  std::swap(output_image, previous_image);
+  std::swap(output_image_view, previous_image_view);
 
   return output_frame;
 }
