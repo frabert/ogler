@@ -17,7 +17,6 @@
 */
 
 #include "vulkan_context.hpp"
-#include <vulkan/vulkan_structs.hpp>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

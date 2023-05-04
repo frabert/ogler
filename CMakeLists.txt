@@ -101,7 +101,7 @@ target_include_directories(reaper_sdk
     "${reaper-sdk_SOURCE_DIR}/sdk"
     "${wdl_SOURCE_DIR}")
 
-find_package(Vulkan REQUIRED COMPONENTS glslang)
+find_package(Vulkan REQUIRED)
 find_package(nlohmann_json 3 REQUIRED)
 
 add_custom_command(
