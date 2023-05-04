@@ -78,15 +78,15 @@ struct PatchData {
 struct SharedVulkan {
   VulkanContext vulkan;
 
-  Buffer gmem_transfer_buffer;
-  Buffer gmem_buffer;
+  Buffer<float> gmem_transfer_buffer;
+  Buffer<float> gmem_buffer;
 
   SharedVulkan();
 };
 
 struct InputImage {
   Image image;
-  Buffer transfer_buffer;
+  Buffer<char> transfer_buffer;
   vk::raii::ImageView view;
 };
 
@@ -102,7 +102,7 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   vk::raii::Queue queue;
   vk::raii::Fence fence;
 
-  Buffer output_transfer_buffer;
+  Buffer<char> output_transfer_buffer;
   Image output_image;
   vk::raii::ImageView output_image_view;
   Image previous_image;
@@ -111,9 +111,9 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   InputImage empty_input;
   std::vector<InputImage> input_images;
 
-  std::optional<Buffer> params_buffer;
+  std::optional<Buffer<float>> params_buffer;
 
-  Buffer input_resolution_buffer;
+  Buffer<std::pair<float, float>> input_resolution_buffer;
 
   struct Compute;
   std::unique_ptr<Compute> compute;

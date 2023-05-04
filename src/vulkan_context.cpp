@@ -92,37 +92,6 @@ VulkanContext::VulkanContext()
       device(init_device(phys_device, queue_family_index)),
       command_pool(create_command_pool(device, queue_family_index)) {}
 
-Buffer VulkanContext::create_buffer(vk::BufferCreateFlags create_flags,
-                                    vk::DeviceSize size,
-                                    vk::BufferUsageFlags usage_flags,
-                                    vk::SharingMode sharing_mode,
-                                    vk::MemoryPropertyFlags properties) {
-  vk::BufferCreateInfo info{
-      .flags = create_flags,
-      .size = size,
-      .usage = usage_flags,
-      .sharingMode = sharing_mode,
-  };
-  auto props = phys_device.getMemoryProperties();
-  auto type_index = std::distance(
-      props.memoryTypes.begin(),
-      std::find_if(props.memoryTypes.begin(), props.memoryTypes.end(),
-                   [properties](const auto &p) {
-                     return (p.propertyFlags & properties) == properties;
-                   }));
-  auto buf = device.createBuffer(info);
-  auto reqs = buf.getMemoryRequirements();
-  vk::MemoryAllocateInfo alloc_info{
-      .allocationSize = reqs.size,
-      .memoryTypeIndex = static_cast<uint32_t>(type_index),
-  };
-
-  auto mem = device.allocateMemory(alloc_info);
-  buf.bindMemory(*mem, 0);
-
-  return Buffer(std::move(buf), std::move(mem), size);
-}
-
 vk::raii::CommandBuffer VulkanContext::create_command_buffer() {
   vk::CommandBufferAllocateInfo command_buffer_alloc_info{
       .commandPool = *command_pool,

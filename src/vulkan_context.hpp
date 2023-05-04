@@ -39,14 +39,20 @@ struct Image {
         height(h) {}
 };
 
-struct Buffer {
+template <typename T = char> struct Buffer {
   vk::raii::Buffer buffer;
   vk::raii::DeviceMemory memory;
+  std::span<T> map;
 
   int size;
 
-  Buffer(vk::raii::Buffer &&buf, vk::raii::DeviceMemory &&mem, int sz)
-      : buffer(std::move(buf)), memory(std::move(mem)), size(sz) {}
+  Buffer(vk::raii::Buffer &&buf, vk::raii::DeviceMemory &&mem, int sz,
+         bool do_map)
+      : buffer(std::move(buf)), memory(std::move(mem)), size(sz),
+        map(do_map
+                ? std::span<T>(
+                      static_cast<T *>(memory.mapMemory(0, sz * sizeof(T))), sz)
+                : std::span<T>()) {}
 };
 
 class VulkanContext {
@@ -60,10 +66,36 @@ public:
 
   VulkanContext();
 
-  Buffer create_buffer(vk::BufferCreateFlags create_flags, vk::DeviceSize size,
-                       vk::BufferUsageFlags usage_flags,
-                       vk::SharingMode sharing_mode,
-                       vk::MemoryPropertyFlags properties);
+  template <typename T>
+  Buffer<T> create_buffer(vk::BufferCreateFlags create_flags,
+                          vk::DeviceSize size, vk::BufferUsageFlags usage_flags,
+                          vk::SharingMode sharing_mode,
+                          vk::MemoryPropertyFlags properties, bool map = true) {
+    vk::BufferCreateInfo info{
+        .flags = create_flags,
+        .size = size * sizeof(T),
+        .usage = usage_flags,
+        .sharingMode = sharing_mode,
+    };
+    auto props = phys_device.getMemoryProperties();
+    auto type_index = std::distance(
+        props.memoryTypes.begin(),
+        std::find_if(props.memoryTypes.begin(), props.memoryTypes.end(),
+                     [properties](const auto &p) {
+                       return (p.propertyFlags & properties) == properties;
+                     }));
+    auto buf = device.createBuffer(info);
+    auto reqs = buf.getMemoryRequirements();
+    vk::MemoryAllocateInfo alloc_info{
+        .allocationSize = reqs.size,
+        .memoryTypeIndex = static_cast<uint32_t>(type_index),
+    };
+
+    auto mem = device.allocateMemory(alloc_info);
+    buf.bindMemory(*mem, 0);
+
+    return Buffer<T>(std::move(buf), std::move(mem), size, map);
+  }
 
   vk::raii::CommandBuffer create_command_buffer();
 
