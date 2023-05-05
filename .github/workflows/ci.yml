@@ -28,3 +28,16 @@ jobs:
         run: cmake --toolchain $env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake -S $env:GITHUB_WORKSPACE -B build -G Ninja -DVCPKG_TARGET_TRIPLET=x64-windows-static -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }} 
       - name: Build
         run: cmake --build build
+      - name: Package
+        working-directory: build
+        run: |
+          cpack -G ZIP
+          cpack -G NSIS
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ogler-zip
+          path: build/*.zip
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ogler-installer
+          path: build/*.exe
