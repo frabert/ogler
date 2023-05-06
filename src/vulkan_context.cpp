@@ -41,10 +41,17 @@ static vk::raii::Instance make_instance(vk::raii::Context &ctx) {
       "VK_LAYER_KHRONOS_validation"
 #endif
   };
+  const std::vector<const char *> extensions = {
+#ifndef NDEBUG
+      "VK_EXT_debug_utils"
+#endif
+  };
   vk::InstanceCreateInfo instance_create_info{
       .pApplicationInfo = &app_info,
       .enabledLayerCount = static_cast<uint32_t>(layers.size()),
       .ppEnabledLayerNames = layers.data(),
+      .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
+      .ppEnabledExtensionNames = extensions.data(),
   };
   return vk::raii::Instance(ctx, instance_create_info);
 }
@@ -84,12 +91,38 @@ static vk::raii::CommandPool create_command_pool(vk::raii::Device &device,
   return vk::raii::CommandPool(device, pool_create_info);
 }
 
+static VKAPI_ATTR VkBool32 VKAPI_CALL
+debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+              VkDebugUtilsMessageTypeFlagsEXT messageType,
+              const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+              void *pUserData) {
+
+  OutputDebugString(pCallbackData->pMessage);
+  OutputDebugString("\n");
+  DebugBreak();
+
+  return VK_FALSE;
+}
+
 VulkanContext::VulkanContext()
     : ctx(), instance(make_instance(ctx)),
       phys_device(std::move(vk::raii::PhysicalDevices(instance).front())),
       queue_family_index(find_queue_family_index(phys_device)),
       device(init_device(phys_device, queue_family_index)),
-      command_pool(create_command_pool(device, queue_family_index)) {}
+      command_pool(create_command_pool(device, queue_family_index))
+#ifndef NDEBUG
+      ,
+      debug_messenger(instance.createDebugUtilsMessengerEXT({
+          .messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
+                             vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
+                             vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning,
+          .messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+                         vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral,
+          .pfnUserCallback = debugCallback,
+      }))
+#endif
+{
+}
 
 vk::raii::CommandBuffer VulkanContext::create_command_buffer() {
   vk::CommandBufferAllocateInfo command_buffer_alloc_info{

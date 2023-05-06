@@ -21,6 +21,7 @@
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 #include <vulkan/vulkan_raii.hpp>
 
+#include <optional>
 #include <span>
 #include <utility>
 
@@ -63,6 +64,8 @@ public:
   uint32_t queue_family_index;
   vk::raii::Device device;
   vk::raii::CommandPool command_pool;
+
+  std::optional<vk::raii::DebugUtilsMessengerEXT> debug_messenger;
 
   VulkanContext();
 
