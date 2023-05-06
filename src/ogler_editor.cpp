@@ -52,8 +52,8 @@ static constexpr int rgba(int r, int g, int b, int a) {
 
 ATOM cls_atom{};
 
-OglerVst::Editor::Editor(void *parent, int &w, int &h, OglerVst &vst)
-    : parent_wnd(static_cast<HWND>(parent)), width(w), height(h), vst(vst) {
+OglerVst::Editor::Editor(void *parent, OglerVst &vst)
+    : parent_wnd(static_cast<HWND>(parent)), vst(vst) {
   InitCommonControls();
   if (!cls_atom) {
     WNDCLASSEX cls{
@@ -107,12 +107,13 @@ OglerVst::Editor::Editor(void *parent, int &w, int &h, OglerVst &vst)
   }
 
   CreateWindowEx(0, reinterpret_cast<LPCSTR>(cls_atom), "ogler",
-                 WS_CHILD | WS_TABSTOP | WS_VISIBLE, 0, 0, width, height,
-                 parent_wnd, nullptr, get_hinstance(), this);
+                 WS_CHILD | WS_TABSTOP | WS_VISIBLE, 0, 0, vst.data.editor_w,
+                 vst.data.editor_h, parent_wnd, nullptr, get_hinstance(), this);
 }
 
 OglerVst::Editor::~Editor() {
   vst.data.video_shader = sc_call->GetText(sc_call->TextLength());
+  vst.data.editor_zoom = sc_call->Zoom();
   DestroyWindow(child_wnd);
 }
 
@@ -156,6 +157,8 @@ void OglerVst::Editor::create() {
   sc_call->StyleSetBack(STY_ErrorAnnotation, 0xFFCCCCFF);
 
   sc_call->SetILexer(new GlslLexer());
+
+  sc_call->SetZoom(vst.data.editor_zoom);
 }
 
 void OglerVst::Editor::scintilla_noti(unsigned code,
@@ -164,8 +167,8 @@ void OglerVst::Editor::scintilla_noti(unsigned code,
 void OglerVst::Editor::resize(int w, int h) {
   SetWindowPos(recompile_btn, nullptr, 0, 0, w, 50, SWP_NOMOVE);
   SetWindowPos(scintilla, nullptr, 0, 50, w, h - 50, SWP_NOMOVE);
-  width = w;
-  height = h;
+  vst.data.editor_w = w;
+  vst.data.editor_h = h;
 }
 
 void OglerVst::Editor::recompile_clicked() {
@@ -205,12 +208,12 @@ void OglerVst::get_editor_bounds(std::int16_t &top, std::int16_t &left,
                                  std::int16_t &right) noexcept {
   top = 0;
   left = 0;
-  bottom = editor_h;
-  right = editor_w;
+  bottom = data.editor_h;
+  right = data.editor_w;
 }
 
 void OglerVst::open_editor(void *hWnd) noexcept {
-  editor = std::make_unique<Editor>(hWnd, editor_w, editor_h, *this);
+  editor = std::make_unique<Editor>(hWnd, *this);
 }
 
 void OglerVst::close_editor() noexcept { editor = nullptr; }

@@ -59,6 +59,10 @@ public:
 };
 
 struct PatchData {
+  static constexpr int default_editor_w = 1024;
+  static constexpr int default_editor_h = 768;
+  static constexpr int default_editor_zoom = 1;
+
   std::string video_shader{
       R"(void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     // Normalized pixel coordinates (from 0 to 1)
@@ -70,6 +74,9 @@ struct PatchData {
     // Output to screen
     fragColor = vec4(col, 1.0);
 })"};
+  int editor_w = default_editor_w;
+  int editor_h = default_editor_h;
+  int editor_zoom = default_editor_zoom;
 
   void deserialize(std::istream &);
   void serialize(std::ostream &);
@@ -121,8 +128,6 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   IVideoFrame *output_frame{};
 
   struct Editor;
-  int editor_w{1024};
-  int editor_h{768};
   std::unique_ptr<Editor> editor;
 
   PatchData data;

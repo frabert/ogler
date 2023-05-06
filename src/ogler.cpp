@@ -351,10 +351,34 @@ void PatchData::deserialize(std::istream &s) {
   s >> obj;
 
   video_shader = obj["video_shader"];
+
+  do {
+    auto &editor_data = obj["editor"];
+    if (editor_data.is_null()) {
+      editor_w = default_editor_w;
+      editor_h = default_editor_h;
+      editor_zoom = default_editor_zoom;
+      break;
+    }
+
+    editor_w = editor_data["width"];
+    editor_h = editor_data["height"];
+    editor_zoom = editor_data["zoom"];
+  } while (false);
 }
 
 void PatchData::serialize(std::ostream &s) {
-  nlohmann::json obj{{"video_shader", video_shader}};
+  nlohmann::json obj{
+      {"video_shader", video_shader},
+      {
+          "editor",
+          {
+              {"width", editor_w},
+              {"height", editor_h},
+              {"zoom", editor_zoom},
+          },
+      },
+  };
   s << obj;
 }
 
