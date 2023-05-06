@@ -46,14 +46,13 @@ extern IREAPERVideoProcessor *(*video_CreateVideoProcessor)(void *fxctx,
                                                             int version);
 
 template <typename T> class ReaperVstPlugin : public VstPlugin<T> {
-  std::unique_ptr<IREAPERVideoProcessor> vproc{};
-
 public:
   ReaperVstPlugin(vst::HostCallback *hostcb) : VstPlugin<T>(hostcb) {}
 
   virtual ~ReaperVstPlugin<T>() = default;
 
 protected:
+  std::unique_ptr<IREAPERVideoProcessor> vproc{};
   void *host_get_reaper_ctx() noexcept {
     return reinterpret_cast<void *>(
         this->hostcb(this->get_effect(), static_cast<HostOpcodes>(0xdeadbeef),

@@ -334,7 +334,10 @@ OglerVst::OglerVst(vst::HostCallback *hostcb)
   gmem = eel_gmem_attach("ogler", true);
 }
 
-OglerVst::~OglerVst() = default;
+OglerVst::~OglerVst() {
+  std::unique_lock<std::mutex> lock(video_mutex);
+  vproc = nullptr;
+}
 
 std::string_view OglerVst::get_effect_name() noexcept { return "ogler"; }
 std::string_view OglerVst::get_vendor_name() noexcept {
@@ -370,7 +373,8 @@ void OglerVst::save_bank_data(std::ostream &s) noexcept { save_preset_data(s); }
 void OglerVst::load_bank_data(std::istream &s) noexcept { load_preset_data(s); }
 
 std::optional<std::string> OglerVst::recompile_shaders() {
-  std::unique_lock<std::recursive_mutex> lock(params_mutex);
+  std::unique_lock<std::mutex> video_lock(video_mutex);
+  std::unique_lock<std::recursive_mutex> params_lock(params_mutex);
 
   auto res = compile_shader({{"<preamble>", R"(#version 460
 #define OGLER_PARAMS_BINDING 0
