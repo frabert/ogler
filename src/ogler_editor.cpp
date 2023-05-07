@@ -231,6 +231,9 @@ void OglerVst::editor_idle() noexcept {
   auto h = parent_parent_rect.bottom - parent_rect.top;
   SetWindowPos(editor->parent_wnd, nullptr, 0, 0, w, h, SWP_NOMOVE);
   SetWindowPos(editor->child_wnd, nullptr, 0, 0, w, h, SWP_NOMOVE);
+
+  auto mwidth = editor->sc_call->TextWidth(STYLE_LINENUMBER, "_999");
+  editor->sc_call->SetMarginWidthN(0, mwidth);
 }
 
 bool OglerVst::is_editor_open() noexcept { return editor != nullptr; }
