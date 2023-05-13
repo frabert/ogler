@@ -6,7 +6,7 @@ Any knowledge on how ShaderToy works can largely be reused for ogler shaders, as
 
 ## What is a video shader?
 
-A video shader is a program that is executed on a video frame, and produces a new frame as output. For those familiar with 3D programming, it's essentially equivalent to a fragment shader (pixel shader in DirectX parlance), or to. This is similar to what happens when calling `gfx_evalrect` in JSFX.
+A video shader is a program that is executed on a video frame, and produces a new frame as output. For those familiar with 3D programming, it's essentially equivalent to a fragment shader (pixel shader in DirectX parlance). This is similar to what happens when calling `gfx_evalrect` in JSFX.
 
 Conceptually, this is what happens:
 
