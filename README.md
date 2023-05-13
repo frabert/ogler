@@ -2,6 +2,12 @@
 
 Ogler is a VST for REAPER that allows writing video (and audio?) effects using GLSL, similar to what happens in ShaderToy.
 
+## How do I write shaders?
+
+If you have previous experience with writing ShaderToys or shaders in general, see the [Reference Manual](/docs/Reference.md).
+
+If you need an introduction to shaders, see the [Tutorial](/docs/Tutorial.md).
+
 ## Compiling
 
 You will need LunarG's Vulkan SDK installed and reachable by CMake.
