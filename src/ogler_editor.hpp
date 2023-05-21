@@ -30,9 +30,9 @@ struct Ogler::Editor {
   HWND wnd{}, scintilla{}, recompile_btn{};
   std::unique_ptr<Scintilla::ScintillaCall> sc_call;
 
-  Ogler &vst;
+  Ogler &plugin;
 
-  Editor(Ogler &vst);
+  Editor(Ogler &plugin);
   ~Editor();
 
   void reload_source();

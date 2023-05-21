@@ -52,7 +52,7 @@ static constexpr int rgba(int r, int g, int b, int a) {
 
 ATOM cls_atom{};
 
-Ogler::Editor::Editor(Ogler &vst) : vst(vst) {
+Ogler::Editor::Editor(Ogler &plugin) : plugin(plugin) {
   InitCommonControls();
   if (!cls_atom) {
     WNDCLASSEX cls{
@@ -106,14 +106,14 @@ Ogler::Editor::Editor(Ogler &vst) : vst(vst) {
   }
 
   CreateWindowEx(0, reinterpret_cast<LPCSTR>(cls_atom), "ogler",
-                 WS_VISIBLE | WS_TABSTOP, 0, 0, vst.data.editor_w,
-                 vst.data.editor_h, nullptr, nullptr, get_hinstance(), this);
+                 WS_VISIBLE | WS_TABSTOP, 0, 0, plugin.data.editor_w,
+                 plugin.data.editor_h, nullptr, nullptr, get_hinstance(), this);
   assert(wnd);
 }
 
 Ogler::Editor::~Editor() {
-  vst.data.video_shader = sc_call->GetText(sc_call->TextLength());
-  vst.data.editor_zoom = sc_call->Zoom();
+  plugin.data.video_shader = sc_call->GetText(sc_call->TextLength());
+  plugin.data.editor_zoom = sc_call->Zoom();
   DestroyWindow(wnd);
 }
 
@@ -158,7 +158,7 @@ void Ogler::Editor::create() {
 
   sc_call->SetILexer(new GlslLexer());
 
-  sc_call->SetZoom(vst.data.editor_zoom);
+  sc_call->SetZoom(plugin.data.editor_zoom);
 }
 
 void Ogler::Editor::scintilla_noti(unsigned code, const SCNotification &noti) {
@@ -171,14 +171,14 @@ void Ogler::Editor::scintilla_noti(unsigned code, const SCNotification &noti) {
 void Ogler::Editor::resize(int w, int h) {
   SetWindowPos(recompile_btn, nullptr, 0, 0, w, 50, SWP_NOMOVE);
   SetWindowPos(scintilla, nullptr, 0, 50, w, h - 50, SWP_NOMOVE);
-  vst.data.editor_w = w;
-  vst.data.editor_h = h;
+  plugin.data.editor_w = w;
+  plugin.data.editor_h = h;
 }
 
 void Ogler::Editor::recompile_clicked() {
   sc_call->AnnotationClearAll();
-  vst.data.video_shader = sc_call->GetText(sc_call->TextLength());
-  if (auto err = vst.recompile_shaders()) {
+  plugin.data.video_shader = sc_call->GetText(sc_call->TextLength());
+  if (auto err = plugin.recompile_shaders()) {
     auto err_str = std::move(*err);
     std::istringstream err_stream(err_str);
     auto err_regex = std::regex(R"(ERROR: <source>:(\d+): (.+))");
@@ -201,7 +201,7 @@ void Ogler::Editor::recompile_clicked() {
 }
 
 void Ogler::Editor::reload_source() {
-  sc_call->SetText(vst.data.video_shader.c_str());
+  sc_call->SetText(plugin.data.video_shader.c_str());
   sc_call->EmptyUndoBuffer();
 }
 
