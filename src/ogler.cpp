@@ -406,7 +406,11 @@ clap_process_status Ogler::process(const clap_process_t &process) {
 
 void *Ogler::get_extension(std::string_view id) { return nullptr; }
 
-void Ogler::on_main_thread() {}
+void Ogler::on_main_thread() {
+  auto host_params = static_cast<const clap_host_params_t *>(
+      host.get_extension(&host, CLAP_EXT_PARAMS));
+  host_params->rescan(&host, CLAP_PARAM_RESCAN_ALL);
+}
 
 void PatchData::deserialize(std::istream &s) {
   nlohmann::json obj;
@@ -562,9 +566,7 @@ layout(binding = 5) uniform sampler2D ogler_previous_frame;
     }
   }
 
-  auto host_params = static_cast<const clap_host_params_t *>(
-      host.get_extension(&host, CLAP_EXT_PARAMS));
-  host_params->rescan(&host, CLAP_PARAM_RESCAN_ALL);
+  host.request_callback(&host);
 
   return {};
 }
