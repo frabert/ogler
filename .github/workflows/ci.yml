@@ -32,12 +32,7 @@ jobs:
         working-directory: build
         run: |
           cpack -G ZIP
-          cpack -G NSIS
       - uses: actions/upload-artifact@v3
         with:
           name: ogler-${{ matrix.buildtype }}-zip
           path: build/*.zip
-      - uses: actions/upload-artifact@v3
-        with:
-          name: ogler-${{ matrix.buildtype }}-installer
-          path: build/*.exe
