@@ -22,7 +22,7 @@
 #include "ogler.hpp"
 
 namespace ogler {
-struct OglerVst::Parameter {
+struct Ogler::Parameter {
   ParameterInfo info;
   float value;
 };

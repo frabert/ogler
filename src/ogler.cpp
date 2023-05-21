@@ -17,6 +17,8 @@
 */
 
 #include "ogler.hpp"
+#include "clap/events.h"
+#include "clap/ext/params.h"
 #include "compile_shader.hpp"
 #include "ogler_debug.hpp"
 #include "ogler_editor.hpp"
@@ -69,7 +71,7 @@ struct SpecializationData {
   int ogler_version_rev;
 };
 
-struct OglerVst::Compute {
+struct Ogler::Compute {
   vk::raii::ShaderModule shader;
   vk::raii::DescriptorSetLayout descriptor_set_layout;
   vk::raii::DescriptorPool descriptor_pool;
@@ -285,8 +287,8 @@ static void transition_image_layout_download(vk::raii::CommandBuffer &cmd,
   cmd.pipelineBarrier(sourceStage, destinationStage, {}, {}, {}, {barrier});
 }
 
-OglerVst::OglerVst(vst::HostCallback *hostcb)
-    : vst::ReaperVstPlugin<OglerVst>(hostcb), shared(get_shared_vulkan()),
+Ogler::Ogler(const clap_host_t &host)
+    : host(host), shared(get_shared_vulkan()),
       command_buffer(shared.vulkan.create_command_buffer()),
       queue(shared.vulkan.get_queue(0)), fence(shared.vulkan.create_fence()),
       sampler(shared.vulkan.create_sampler()),
@@ -315,10 +317,21 @@ OglerVst::OglerVst(vst::HostCallback *hostcb)
               {}, max_num_inputs, vk::BufferUsageFlagBits::eUniformBuffer,
               vk::SharingMode::eExclusive,
               vk::MemoryPropertyFlagBits::eHostCoherent |
-                  vk::MemoryPropertyFlagBits::eHostVisible)),
-      eel_mutex(
-          get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_EnterMutex"),
-          get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_LEAVEMutex")) {
+                  vk::MemoryPropertyFlagBits::eHostVisible)) {}
+
+Ogler::~Ogler() {
+  std::unique_lock<std::mutex> lock(video_mutex);
+  vproc = nullptr;
+}
+
+bool Ogler::init() {
+  if (std::string_view{host.vendor} != "Cockos" ||
+      std::string_view{host.name} != "REAPER") {
+    return false;
+  }
+  eel_mutex =
+      EELMutex{get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_EnterMutex"),
+               get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_LEAVEMutex")};
 
   one_shot_execute([&]() {
     transition_image_layout_download(command_buffer, output_image);
@@ -332,19 +345,65 @@ OglerVst::OglerVst(vst::HostCallback *hostcb)
   auto eel_gmem_attach =
       get_reaper_function<eel_gmem_attach_f>("eel_gmem_attach");
   gmem = eel_gmem_attach("ogler", true);
+  static IREAPERVideoProcessor *(*video_CreateVideoProcessor)(void *fxctx,
+                                                              int version);
+
+  if (!video_CreateVideoProcessor) {
+    video_CreateVideoProcessor =
+        get_reaper_function<IREAPERVideoProcessor *(void *, int)>(
+            "video_CreateVideoProcessor");
+    ShowConsoleMsg = get_reaper_function<void(const char *)>("ShowConsoleMsg");
+  }
+
+  vproc = std::unique_ptr<IREAPERVideoProcessor>(video_CreateVideoProcessor(
+      host.host_data, IREAPERVideoProcessor::REAPER_VIDEO_PROCESSOR_VERSION));
+  vproc->userdata = this;
+  vproc->process_frame =
+      [](IREAPERVideoProcessor *vproc, const double *parmlist, int nparms,
+         double project_time, double frate, int force_format) {
+        auto plugin = static_cast<Ogler *>(vproc->userdata);
+        return plugin->video_process_frame(
+            std::span{parmlist, static_cast<size_t>(nparms)}, project_time,
+            frate, static_cast<FrameFormat>(force_format));
+      };
+  vproc->get_parameter_value = [](IREAPERVideoProcessor *vproc, int idx,
+                                  double *valueOut) -> bool {
+    auto plugin = static_cast<Ogler *>(vproc->userdata);
+    auto val = plugin->video_get_parameter(idx);
+    if (val.has_value()) {
+      *valueOut = *val;
+      return true;
+    } else {
+      return false;
+    }
+  };
+  return true;
 }
 
-OglerVst::~OglerVst() {
-  std::unique_lock<std::mutex> lock(video_mutex);
-  vproc = nullptr;
+std::optional<double> Ogler::video_get_parameter(int index) {
+  return std::nullopt;
 }
 
-std::string_view OglerVst::get_effect_name() noexcept { return "ogler"; }
-std::string_view OglerVst::get_vendor_name() noexcept {
-  return "Francesco Bertolaccini";
+bool Ogler::activate(double sample_rate, uint32_t min_frames_count,
+                     uint32_t max_frames_count) {
+  return true;
 }
-std::string_view OglerVst::get_product_name() noexcept { return "ogler"; }
-std::int32_t OglerVst::get_vendor_version() noexcept { return 1000; }
+void Ogler::deactivate() {}
+
+bool Ogler::start_processing() { return true; }
+
+void Ogler::stop_processing() {}
+
+void Ogler::reset() {}
+
+clap_process_status Ogler::process(const clap_process_t &process) {
+  handle_events(*process.in_events);
+  return CLAP_PROCESS_SLEEP;
+}
+
+void *Ogler::get_extension(std::string_view id) { return nullptr; }
+
+void Ogler::on_main_thread() {}
 
 void PatchData::deserialize(std::istream &s) {
   nlohmann::json obj;
@@ -382,21 +441,21 @@ void PatchData::serialize(std::ostream &s) {
   s << obj;
 }
 
-void OglerVst::save_preset_data(std::ostream &s) noexcept { data.serialize(s); }
+bool Ogler::state_save(std::ostream &s) {
+  data.serialize(s);
+  return true;
+}
 
-void OglerVst::load_preset_data(std::istream &s) noexcept {
+bool Ogler::state_load(std::istream &s) {
   data.deserialize(s);
   if (editor) {
     editor->reload_source();
   }
   recompile_shaders();
+  return true;
 }
 
-void OglerVst::save_bank_data(std::ostream &s) noexcept { save_preset_data(s); }
-
-void OglerVst::load_bank_data(std::istream &s) noexcept { load_preset_data(s); }
-
-std::optional<std::string> OglerVst::recompile_shaders() {
+std::optional<std::string> Ogler::recompile_shaders() {
   std::unique_lock<std::mutex> video_lock(video_mutex);
   std::unique_lock<std::recursive_mutex> params_lock(params_mutex);
 
@@ -487,11 +546,8 @@ layout(binding = 5) uniform sampler2D ogler_previous_frame;
   } catch (vk::Error &e) {
     return e.what();
   }
-  get_effect()->numParams = parameters.size();
-  if (old_num != parameters.size()) {
-    this->adjust_params_num(0, -old_num);
-    this->adjust_params_num(0, parameters.size());
 
+  if (old_num != parameters.size()) {
     if (parameters.size()) {
       params_buffer = shared.vulkan.create_buffer<float>(
           {}, parameters.size(), vk::BufferUsageFlagBits::eUniformBuffer,
@@ -502,6 +558,10 @@ layout(binding = 5) uniform sampler2D ogler_previous_frame;
       params_buffer = std::nullopt;
     }
   }
+
+  auto host_params = static_cast<const clap_host_params_t *>(
+      host.get_extension(&host, CLAP_EXT_PARAMS));
+  host_params->rescan(&host, CLAP_PARAM_RESCAN_ALL);
 
   return {};
 }
@@ -562,7 +622,7 @@ static void copy_image(std::span<char> src_span, std::span<char> dst_span,
   }
 }
 
-InputImage OglerVst::create_input_image(int w, int h) {
+InputImage Ogler::create_input_image(int w, int h) {
   auto img = shared.vulkan.create_image(
       w, h, RGBAFormat, vk::ImageTiling::eOptimal,
       vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled);
@@ -580,10 +640,9 @@ InputImage OglerVst::create_input_image(int w, int h) {
   };
 }
 
-IVideoFrame *
-OglerVst::video_process_frame(std::span<const double> parms,
-                              double project_time, double framerate,
-                              vst::FrameFormat force_format) noexcept {
+IVideoFrame *Ogler::video_process_frame(std::span<const double> parms,
+                                        double project_time, double framerate,
+                                        FrameFormat force_format) noexcept {
   std::unique_lock<std::mutex> lock(video_mutex, std::try_to_lock_t{});
   if (!lock.owns_lock()) {
     return nullptr;
@@ -594,13 +653,13 @@ OglerVst::video_process_frame(std::span<const double> parms,
   }
 
   output_frame =
-      new_video_frame(output_width, output_height, vst::FrameFormat::RGBA);
+      vproc->newVideoFrame(output_width, output_height, (int)FrameFormat::RGBA);
   auto output_rowspan = output_frame->get_rowspan();
   auto output_w = output_frame->get_w();
   auto output_h = output_frame->get_h();
   assert(output_w == output_width);
   assert(output_h == output_height);
-  auto num_inputs = get_video_num_inputs();
+  auto num_inputs = vproc->getNumInputs();
 
   UniformsView uniforms{
       .data =
@@ -624,7 +683,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
   }
 
   {
-    std::unique_lock<EELMutex> eel_lock(eel_mutex);
+    std::unique_lock<EELMutex> eel_lock(*eel_mutex);
     auto dst = shared.gmem_transfer_buffer.map.data();
     double **pblocks = *gmem;
     if (pblocks) {
@@ -674,7 +733,7 @@ OglerVst::video_process_frame(std::span<const double> parms,
   std::array<std::pair<float, float>, max_num_inputs> input_resolution;
   std::array<vk::DescriptorImageInfo, max_num_inputs> input_image_info;
   for (size_t i = 0; i < max_num_inputs; ++i) {
-    auto input_frame = get_video_input(i, vst::FrameFormat::RGBA);
+    auto input_frame = vproc->renderInputVideoFrame(i, (int)FrameFormat::RGBA);
     if (!input_frame) {
       input_resolution[i] = {1, 1};
       input_image_info[i] = {
@@ -915,17 +974,5 @@ OglerVst::video_process_frame(std::span<const double> parms,
   std::swap(output_image_view, previous_image_view);
 
   return output_frame;
-}
-
-void OglerVst::process(float **inputs, float **outputs,
-                       std::int32_t num_samples) noexcept {
-  std::copy(inputs[0], inputs[0] + num_samples, outputs[0]);
-  std::copy(inputs[1], inputs[1] + num_samples, outputs[1]);
-}
-
-void OglerVst::process(double **inputs, double **outputs,
-                       std::int32_t num_samples) noexcept {
-  std::copy(inputs[0], inputs[0] + num_samples, outputs[0]);
-  std::copy(inputs[1], inputs[1] + num_samples, outputs[1]);
 }
 } // namespace ogler

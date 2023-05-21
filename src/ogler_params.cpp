@@ -18,74 +18,98 @@
 
 #include "ogler.hpp"
 
+#include <clap/ext/params.h>
+
 #include "ogler_params.hpp"
+#undef min
 
 namespace ogler {
 
-void OglerVst::set_parameter(std::int32_t index, float value) noexcept {
+uint32_t Ogler::params_count() {
   std::unique_lock<std::recursive_mutex> lock(params_mutex);
-
-  parameters[index].value = value;
-}
-
-float OglerVst::get_parameter(std::int32_t index) noexcept {
-  std::unique_lock<std::recursive_mutex> lock(params_mutex);
-
-  return parameters[index].value;
-}
-
-int OglerVst::get_num_parameters() noexcept {
-  std::unique_lock<std::recursive_mutex> lock(params_mutex);
-
   return parameters.size();
 }
 
-void OglerVst::get_param_range(int index, double &min, double &max) {
+std::optional<clap_param_info_t> Ogler::params_get_info(uint32_t param_index) {
   std::unique_lock<std::recursive_mutex> lock(params_mutex);
-
-  min = parameters[index].info.minimum_val;
-  max = parameters[index].info.maximum_val;
-}
-
-std::string_view OglerVst::get_parameter_label(int index) noexcept {
-  return "";
-}
-
-std::string_view OglerVst::get_parameter_text(int index) noexcept {
-  std::unique_lock<std::recursive_mutex> lock(params_mutex);
-
-  param_text = std::to_string(parameters[index].value);
-  return param_text;
-}
-
-std::string_view OglerVst::get_parameter_name(int index) noexcept {
-  std::unique_lock<std::recursive_mutex> lock(params_mutex);
-
-  return parameters[index].info.display_name;
-}
-
-bool OglerVst::can_be_automated(int index) noexcept { return true; }
-
-std::optional<vst::ParameterProperties>
-OglerVst::get_parameter_properties(int index) noexcept {
-  std::unique_lock<std::recursive_mutex> lock(params_mutex);
-
-  auto &info = parameters[index].info;
-  vst::ParameterProperties props{
-      .stepFloat = info.step_size,
-      .smallStepFloat = info.step_size,
-      .largeStepFloat = info.step_size,
-      .label{},
-      .flags = info.step_size != 0 ? vst::ParameterUsesFloatStep
-                                   : static_cast<vst::ParameterFlags>(0),
-      .shortLabel{},
+  if (param_index >= parameters.size()) {
+    return std::nullopt;
+  }
+  auto &param = parameters[param_index];
+  clap_param_info_t res{
+      .id = param_index,
+      .flags = CLAP_PARAM_IS_AUTOMATABLE,
+      .cookie = &param.value,
+      .min_value = param.info.minimum_val,
+      .max_value = param.info.maximum_val,
+      .default_value = param.info.default_value,
   };
+  if (param.info.step_size != 0.0f) {
+    res.flags |= CLAP_PARAM_IS_STEPPED;
+  }
+  std::copy_n(param.info.display_name.begin(),
+              std::min({static_cast<size_t>(param.info.display_name.size()),
+                        static_cast<size_t>(CLAP_NAME_SIZE)}),
+              res.name);
+  return res;
+}
 
-  copy_string(info.name.data(), props.label.data(), info.name.size(),
-              props.label.size());
-  copy_string(info.name.data(), props.shortLabel.data(), info.name.size(),
-              props.shortLabel.size());
-  return props;
+std::optional<double> Ogler::params_get_value(clap_id param_id) {
+  std::unique_lock<std::recursive_mutex> lock(params_mutex);
+  if (param_id >= parameters.size()) {
+    return std::nullopt;
+  }
+  return parameters[param_id].value;
+}
+
+bool Ogler::params_value_to_text(clap_id param_id, double value,
+                                 std::span<char> out_buffer) {
+  std::unique_lock<std::recursive_mutex> lock(params_mutex);
+  if (param_id >= parameters.size()) {
+    return false;
+  }
+
+  std::snprintf(out_buffer.data(), out_buffer.size(), "%.2f",
+                parameters[param_id].value);
+  return true;
+}
+
+std::optional<double>
+Ogler::params_text_to_value(clap_id param_id,
+                            std::string_view param_value_text) {
+  std::unique_lock<std::recursive_mutex> lock(params_mutex);
+  if (param_id >= parameters.size()) {
+    return std::nullopt;
+  }
+  return std::stof(param_value_text.data());
+}
+
+void Ogler::params_flush(const clap_input_events_t &in,
+                         const clap_output_events_t &out) {
+  handle_events(in);
+}
+
+void Ogler::handle_events(const clap_input_events_t &events) {
+  std::unique_lock<std::recursive_mutex> lock(params_mutex);
+  for (uint32_t i = 0; i < events.size(&events); ++i) {
+    auto event = events.get(&events, i);
+    switch (event->type) {
+    case CLAP_EVENT_PARAM_VALUE: {
+      auto param_value_event =
+          reinterpret_cast<const clap_event_param_value_t *>(event);
+      if (param_value_event->cookie) {
+        *static_cast<float *>(param_value_event->cookie) =
+            param_value_event->value;
+      } else {
+        [[unlikely]] parameters[param_value_event->param_id].value =
+            param_value_event->value;
+      }
+      break;
+    }
+    default:
+      break;
+    }
+  }
 }
 
 } // namespace ogler

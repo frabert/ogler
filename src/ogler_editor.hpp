@@ -26,16 +26,17 @@ class ScintillaCall;
 }
 
 namespace ogler {
-struct OglerVst::Editor {
-  HWND parent_wnd, child_wnd, scintilla, recompile_btn;
+struct Ogler::Editor {
+  HWND wnd{}, scintilla{}, recompile_btn{};
   std::unique_ptr<Scintilla::ScintillaCall> sc_call;
 
-  OglerVst &vst;
+  Ogler &vst;
 
-  Editor(void *hWnd, OglerVst &vst);
+  Editor(Ogler &vst);
   ~Editor();
 
   void reload_source();
+  void set_parent(void *parent);
 
 private:
   void create();

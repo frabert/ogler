@@ -25,6 +25,8 @@
 
 #include <glslang/Public/ShaderLang.h>
 
+#include "clap/plugin.hpp"
+
 HINSTANCE hInstance;
 
 extern "C" {
@@ -35,7 +37,7 @@ int Scintilla_ReleaseResources();
 namespace ogler {
 HINSTANCE get_hinstance() { return hInstance; }
 
-SharedVulkan &OglerVst::get_shared_vulkan() {
+SharedVulkan &Ogler::get_shared_vulkan() {
   static SharedVulkan shared_vulkan;
   return shared_vulkan;
 }
@@ -59,8 +61,19 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
   return true;
 }
 
-extern "C" __declspec(dllexport) vst::AEffect *VSTPluginMain(
-    vst::HostCallback *callback) {
-  auto plugin = new ogler::OglerVst(callback);
-  return plugin->get_effect();
-}
+static_assert(clap::SupportsState<ogler::Ogler>);
+static_assert(clap::SupportsGui<ogler::Ogler>);
+static_assert(clap::SupportsParams<ogler::Ogler>);
+
+CLAP_EXPORT extern "C" const clap_plugin_entry_t clap_entry{
+    .clap_version = CLAP_VERSION,
+    .init = [](const char *plugin_path) { return true; },
+    .deinit = []() {},
+    .get_factory = [](const char *factory_id) -> const void * {
+      if (std::string_view{factory_id} != CLAP_PLUGIN_FACTORY_ID) {
+        return nullptr;
+      }
+
+      return &clap::plugin_factory<ogler::Ogler>::value;
+    },
+};

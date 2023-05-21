@@ -52,8 +52,7 @@ static constexpr int rgba(int r, int g, int b, int a) {
 
 ATOM cls_atom{};
 
-OglerVst::Editor::Editor(void *parent, OglerVst &vst)
-    : parent_wnd(static_cast<HWND>(parent)), vst(vst) {
+Ogler::Editor::Editor(Ogler &vst) : vst(vst) {
   InitCommonControls();
   if (!cls_atom) {
     WNDCLASSEX cls{
@@ -64,7 +63,7 @@ OglerVst::Editor::Editor(void *parent, OglerVst &vst)
           if (Msg == WM_CREATE) {
             auto strct = reinterpret_cast<LPCREATESTRUCT>(lParam);
             auto editor = reinterpret_cast<Editor *>(strct->lpCreateParams);
-            editor->child_wnd = hWnd;
+            editor->wnd = hWnd;
             SetWindowLongPtr(hWnd, GWLP_USERDATA,
                              reinterpret_cast<LONG_PTR>(strct->lpCreateParams));
           }
@@ -107,27 +106,28 @@ OglerVst::Editor::Editor(void *parent, OglerVst &vst)
   }
 
   CreateWindowEx(0, reinterpret_cast<LPCSTR>(cls_atom), "ogler",
-                 WS_CHILD | WS_TABSTOP | WS_VISIBLE, 0, 0, vst.data.editor_w,
-                 vst.data.editor_h, parent_wnd, nullptr, get_hinstance(), this);
+                 WS_VISIBLE | WS_TABSTOP, 0, 0, vst.data.editor_w,
+                 vst.data.editor_h, nullptr, nullptr, get_hinstance(), this);
+  assert(wnd);
 }
 
-OglerVst::Editor::~Editor() {
+Ogler::Editor::~Editor() {
   vst.data.video_shader = sc_call->GetText(sc_call->TextLength());
   vst.data.editor_zoom = sc_call->Zoom();
-  DestroyWindow(child_wnd);
+  DestroyWindow(wnd);
 }
 
-void OglerVst::Editor::create() {
+void Ogler::Editor::create() {
   recompile_btn =
       CreateWindowEx(0, "BUTTON", "Recompile",
                      WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON, 0,
-                     0, 100, 50, child_wnd, nullptr, get_hinstance(), nullptr);
+                     0, 100, 50, wnd, nullptr, get_hinstance(), nullptr);
 
-  scintilla = CreateWindowEx(0, "Scintilla", "",
-                             WS_CHILD | WS_VISIBLE | WS_TABSTOP |
-                                 WS_CLIPCHILDREN | WS_HSCROLL | WS_VSCROLL,
-                             0, 50, 100, 100, child_wnd, nullptr,
-                             get_hinstance(), nullptr);
+  scintilla =
+      CreateWindowEx(0, "Scintilla", "",
+                     WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPCHILDREN |
+                         WS_HSCROLL | WS_VSCROLL,
+                     0, 50, 100, 100, wnd, nullptr, get_hinstance(), nullptr);
 
   auto fn_ = reinterpret_cast<Scintilla::FunctionDirect>(
       SendMessage(scintilla, SCI_GETDIRECTFUNCTION, 0, 0));
@@ -161,17 +161,21 @@ void OglerVst::Editor::create() {
   sc_call->SetZoom(vst.data.editor_zoom);
 }
 
-void OglerVst::Editor::scintilla_noti(unsigned code,
-                                      const SCNotification &noti) {}
+void Ogler::Editor::scintilla_noti(unsigned code, const SCNotification &noti) {
+  if (code == SCN_ZOOM) {
+    auto mwidth = sc_call->TextWidth(STYLE_LINENUMBER, "_999");
+    sc_call->SetMarginWidthN(0, mwidth);
+  }
+}
 
-void OglerVst::Editor::resize(int w, int h) {
+void Ogler::Editor::resize(int w, int h) {
   SetWindowPos(recompile_btn, nullptr, 0, 0, w, 50, SWP_NOMOVE);
   SetWindowPos(scintilla, nullptr, 0, 50, w, h - 50, SWP_NOMOVE);
   vst.data.editor_w = w;
   vst.data.editor_h = h;
 }
 
-void OglerVst::Editor::recompile_clicked() {
+void Ogler::Editor::recompile_clicked() {
   sc_call->AnnotationClearAll();
   vst.data.video_shader = sc_call->GetText(sc_call->TextLength());
   if (auto err = vst.recompile_shaders()) {
@@ -191,51 +195,80 @@ void OglerVst::Editor::recompile_clicked() {
       }
     }
 
-    MessageBox(child_wnd, err_str.c_str(), "Shader compilation error",
+    MessageBox(wnd, err_str.c_str(), "Shader compilation error",
                MB_OK | MB_ICONERROR);
   }
 }
 
-void OglerVst::Editor::reload_source() {
+void Ogler::Editor::reload_source() {
   sc_call->SetText(vst.data.video_shader.c_str());
   sc_call->EmptyUndoBuffer();
 }
 
-bool OglerVst::has_editor() noexcept { return true; }
-
-void OglerVst::get_editor_bounds(std::int16_t &top, std::int16_t &left,
-                                 std::int16_t &bottom,
-                                 std::int16_t &right) noexcept {
-  top = 0;
-  left = 0;
-  bottom = data.editor_h;
-  right = data.editor_w;
+bool Ogler::gui_is_api_supported(std::string_view api, bool is_floating) {
+  return api == CLAP_WINDOW_API_WIN32;
 }
 
-void OglerVst::open_editor(void *hWnd) noexcept {
-  editor = std::make_unique<Editor>(hWnd, *this);
+std::optional<std::pair<const char *, bool>> Ogler::gui_get_preferred_api() {
+  return {{CLAP_WINDOW_API_WIN32, false}};
 }
 
-void OglerVst::close_editor() noexcept { editor = nullptr; }
-
-void OglerVst::editor_idle() noexcept {
-  if (!editor) {
-    return;
+bool Ogler::gui_create(std::string_view api, bool is_floating) {
+  if (api != CLAP_WINDOW_API_WIN32) {
+    return false;
   }
 
-  auto parent_parent = GetParent(editor->parent_wnd);
-  RECT parent_rect, parent_parent_rect;
-  GetWindowRect(parent_parent, &parent_parent_rect);
-  GetWindowRect(editor->parent_wnd, &parent_rect);
-  auto w = parent_parent_rect.right - parent_parent_rect.left;
-  auto h = parent_parent_rect.bottom - parent_rect.top;
-  SetWindowPos(editor->parent_wnd, nullptr, 0, 0, w, h, SWP_NOMOVE);
-  SetWindowPos(editor->child_wnd, nullptr, 0, 0, w, h, SWP_NOMOVE);
-
-  auto mwidth = editor->sc_call->TextWidth(STYLE_LINENUMBER, "_999");
-  editor->sc_call->SetMarginWidthN(0, mwidth);
+  editor = std::make_unique<Editor>(*this);
+  return true;
 }
 
-bool OglerVst::is_editor_open() noexcept { return editor != nullptr; }
+void Ogler::gui_destroy() { editor = nullptr; }
+
+bool Ogler::gui_set_scale(double scale) { return false; }
+
+std::optional<std::pair<uint32_t, uint32_t>> Ogler::gui_get_size() {
+  return {{data.editor_w, data.editor_h}};
+}
+
+bool Ogler::gui_can_resize() { return true; }
+
+std::optional<clap_gui_resize_hints_t> Ogler::gui_get_resize_hints() {
+  return {{
+      .can_resize_horizontally = true,
+      .can_resize_vertically = true,
+      .preserve_aspect_ratio = false,
+  }};
+}
+
+bool Ogler::gui_adjust_size(uint32_t &width, uint32_t &height) { return true; }
+
+bool Ogler::gui_set_size(uint32_t width, uint32_t height) {
+  SetWindowPos(editor->wnd, nullptr, 0, 0, width, height, SWP_NOMOVE);
+  data.editor_w = width;
+  data.editor_h = height;
+  return true;
+}
+
+bool Ogler::gui_set_parent(const clap_window_t &window) {
+  SetParent(editor->wnd, static_cast<HWND>(window.ptr));
+  SetWindowLongPtr(editor->wnd, GWL_STYLE, WS_CHILD | WS_TABSTOP | WS_VISIBLE);
+  return true;
+}
+
+bool Ogler::gui_set_transient(const clap_window_t &window) { return false; }
+
+void Ogler::gui_suggest_title(std::string_view title) {
+  SetWindowText(editor->wnd, title.data());
+}
+
+bool Ogler::gui_show() {
+  ShowWindow(editor->wnd, SW_SHOW);
+  return true;
+}
+
+bool Ogler::gui_hide() {
+  ShowWindow(editor->wnd, SW_HIDE);
+  return true;
+}
 
 } // namespace ogler

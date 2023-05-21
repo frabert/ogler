@@ -21,10 +21,19 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include "vst/ReaperVstPlugin.hpp"
-
 #include <memory>
 #include <mutex>
+
+#include <WDL/wdltypes.h>
+#include <reaper_plugin.h>
+#include <video_frame.h>
+#include <video_processor.h>
+
+#include <clap/events.h>
+#include <clap/ext/gui.h>
+#include <clap/ext/params.h>
+#include <clap/host.h>
+#include <clap/plugin.h>
 
 #include "vulkan_context.hpp"
 
@@ -32,6 +41,14 @@
 #define OGLER_STRINGIZE(x) OGLER_STRINGIZE_(x)
 
 namespace ogler {
+
+enum class FrameFormat : int {
+  Default = 0,
+  YV12 = 'YV12',
+  YUV2 = 'YUV2',
+  RGBA = 'RGBA',
+};
+
 HINSTANCE get_hinstance();
 
 namespace version {
@@ -97,7 +114,10 @@ struct InputImage {
   vk::raii::ImageView view;
 };
 
-class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
+class Ogler final {
+  const clap_host_t &host;
+  std::unique_ptr<IREAPERVideoProcessor> vproc;
+
   int output_width = 1024;
   int output_height = 768;
 
@@ -141,7 +161,7 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
   std::mutex video_mutex;
   std::recursive_mutex params_mutex;
 
-  EELMutex eel_mutex;
+  std::optional<EELMutex> eel_mutex;
   double ***gmem{};
 
   InputImage create_input_image(int w, int h);
@@ -169,59 +189,75 @@ class OglerVst final : public vst::ReaperVstPlugin<OglerVst> {
     command_buffer.reset();
   }
 
+  template <typename T> T *get_reaper_function(std::string_view name) {
+    auto reaper_plugin = static_cast<const reaper_plugin_info_t *>(
+        host.get_extension(&host, "cockos.reaper_extension"));
+    return reinterpret_cast<T *>(reaper_plugin->GetFunc(name.data()));
+  }
+
+  IVideoFrame *video_process_frame(std::span<const double> parms,
+                                   double project_time, double framerate,
+                                   FrameFormat force_format) noexcept;
+  std::optional<double> video_get_parameter(int index);
+
+  void handle_events(const clap_input_events_t &events);
+
 public:
-  static constexpr int num_programs = 0;
-  static constexpr int num_params = 0;
-  static constexpr int num_inputs = 2;
-  static constexpr int num_outputs = 2;
-  static constexpr int flags = vst::AEffectFlags::EffectCanReplacing |
-                               vst::AEffectFlags::EffectHasEditor |
-                               vst::AEffectFlags::EffectProgramChunks;
-  static constexpr int unique_id = 0xFB000001;
-  static constexpr int version = 1000;
+  static constexpr const char *id = "dev.bertolaccini.ogler";
+  static constexpr const char *name = "ogler";
+  static constexpr const char *vendor = "Francesco Bertolaccini";
+  static constexpr const char *url = "https://github.com/frabert/ogler";
+  static constexpr const char *manual_url =
+      "https://github.com/frabert/ogler/blob/main/docs/Reference.md";
+  static constexpr const char *support_url =
+      "https://github.com/frabert/ogler/discussions";
+  static constexpr const char *version = version::string;
+  static constexpr const char *description = "Use GLSL video shaders in REAPER";
+  static constexpr const char *features[] = {"reaper:video-processor", {}};
 
-  OglerVst(vst::HostCallback *hostcb);
-  ~OglerVst();
+  Ogler(const clap_host_t &host);
+  ~Ogler();
 
-protected:
-  std::string_view get_effect_name() noexcept final;
-  std::string_view get_vendor_name() noexcept final;
-  std::string_view get_product_name() noexcept final;
-  std::int32_t get_vendor_version() noexcept final;
+  bool init();
+  bool activate(double sample_rate, uint32_t min_frames_count,
+                uint32_t max_frames_count);
+  void deactivate();
 
-  void process(float **inputs, float **outputs,
-               std::int32_t num_samples) noexcept final;
-  void process(double **inputs, double **outputs,
-               std::int32_t num_samples) noexcept final;
+  bool start_processing();
+  void stop_processing();
+  void reset();
+  clap_process_status process(const clap_process_t &process);
 
-  bool has_editor() noexcept final;
-  void get_editor_bounds(std::int16_t &top, std::int16_t &left,
-                         std::int16_t &bottom,
-                         std::int16_t &right) noexcept final;
-  void open_editor(void *hWnd) noexcept final;
-  void close_editor() noexcept final;
-  void editor_idle() noexcept final;
-  bool is_editor_open() noexcept final;
+  bool state_save(std::ostream &os);
+  bool state_load(std::istream &os);
 
-  IVideoFrame *
-  video_process_frame(std::span<const double> parms, double project_time,
-                      double framerate,
-                      vst::FrameFormat force_format) noexcept final;
+  void *get_extension(std::string_view id);
+  void on_main_thread();
 
-  void save_preset_data(std::ostream &s) noexcept final;
-  void load_preset_data(std::istream &s) noexcept final;
-  void save_bank_data(std::ostream &s) noexcept final;
-  void load_bank_data(std::istream &s) noexcept final;
+  uint32_t params_count();
+  std::optional<clap_param_info_t> params_get_info(uint32_t param_index);
+  std::optional<double> params_get_value(clap_id param_id);
+  bool params_value_to_text(clap_id param_id, double value,
+                            std::span<char> out_buffer);
+  std::optional<double> params_text_to_value(clap_id param_id,
+                                             std::string_view param_value_text);
+  void params_flush(const clap_input_events_t &in,
+                    const clap_output_events_t &out);
 
-  void set_parameter(std::int32_t index, float value) noexcept final;
-  float get_parameter(std::int32_t index) noexcept final;
-  int get_num_parameters() noexcept final;
-  void get_param_range(int index, double &min, double &max) final;
-  std::string_view get_parameter_label(int index) noexcept final;
-  std::string_view get_parameter_text(int index) noexcept final;
-  std::string_view get_parameter_name(int index) noexcept final;
-  bool can_be_automated(int index) noexcept final;
-  std::optional<vst::ParameterProperties>
-  get_parameter_properties(int index) noexcept final;
+  bool gui_is_api_supported(std::string_view api, bool is_floating);
+  std::optional<std::pair<const char *, bool>> gui_get_preferred_api();
+  bool gui_create(std::string_view api, bool is_floating);
+  void gui_destroy();
+  bool gui_set_scale(double scale);
+  std::optional<std::pair<uint32_t, uint32_t>> gui_get_size();
+  bool gui_can_resize();
+  std::optional<clap_gui_resize_hints_t> gui_get_resize_hints();
+  bool gui_adjust_size(uint32_t &width, uint32_t &height);
+  bool gui_set_size(uint32_t width, uint32_t height);
+  bool gui_set_parent(const clap_window_t &window);
+  bool gui_set_transient(const clap_window_t &window);
+  void gui_suggest_title(std::string_view title);
+  bool gui_show();
+  bool gui_hide();
 };
 } // namespace ogler

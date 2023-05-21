@@ -14,9 +14,6 @@ FetchContent_Declare(
     reaper-sdk
     GIT_REPOSITORY https://github.com/justinfrankel/reaper-sdk
     GIT_TAG cf3897918283577ff06acdbfc81bea599f00c068
-    GIT_SHALLOW TRUE
-    GIT_PROGRESS TRUE
-    USES_TERMINAL_DOWNLOAD TRUE
 )
 FetchContent_Declare(
     wdl
@@ -33,9 +30,6 @@ FetchContent_Declare(
     glslang
     GIT_REPOSITORY https://github.com/KhronosGroup/glslang
     GIT_TAG 14e5a04e70057972eef8a40df422e30a3b70e4b5 # v12.1.0
-    GIT_SHALLOW TRUE
-    GIT_PROGRESS TRUE
-    USES_TERMINAL_DOWNLOAD TRUE
 )
 FetchContent_Declare(
     re2c
@@ -43,12 +37,17 @@ FetchContent_Declare(
     URL_HASH SHA3_224=7a5ca7acc8720ea070f6f2998f71f5c52265a4d6f43153907014ebf4
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
+FetchContent_Declare(
+    clap
+    GIT_REPOSITORY https://github.com/free-audio/clap/
+    GIT_TAG 41964fa3f44fdbf6feb20df528a9cdf2cc3b05ba # v1.1.8
+)
 
 set(SKIP_GLSLANG_INSTALL TRUE CACHE BOOL "" FORCE)
 set(RE2C_BUILD_RE2GO FALSE CACHE BOOL "" FORCE)
 set(RE2C_BUILD_RE2RUST FALSE CACHE BOOL "" FORCE)
 set(RE2C_BUILD_BENCHMARKS FALSE CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(reaper-sdk wdl scintilla glslang re2c)
+FetchContent_MakeAvailable(reaper-sdk wdl scintilla glslang re2c clap)
 
 add_library(scintilla STATIC
     "${scintilla_SOURCE_DIR}/src/AutoComplete.cxx"
@@ -123,14 +122,14 @@ add_library(ogler MODULE
     "src/ogler_lexer.cpp"
     "src/ogler_params.cpp"
     "src/vulkan_context.cpp"
-    "src/vst/ReaperVstPlugin.cpp"
 
     "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp")
 
 set(OGLER_VULKAN_VER "1_0")
 set_target_properties(ogler
     PROPERTIES
-    CXX_STANDARD 20)
+    CXX_STANDARD 20
+    SUFFIX ".clap")
 target_compile_definitions(ogler
     PRIVATE
     OGLER_VER_MAJOR=${OGLER_VER_MAJOR}
@@ -146,7 +145,8 @@ target_link_libraries(ogler
     ComCtl32
     nlohmann_json::nlohmann_json
     glslang
-    SPIRV)
+    SPIRV
+    clap)
 target_include_directories(ogler PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 install(
