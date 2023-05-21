@@ -64,6 +64,7 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
 static_assert(clap::SupportsState<ogler::Ogler>);
 static_assert(clap::SupportsGui<ogler::Ogler>);
 static_assert(clap::SupportsParams<ogler::Ogler>);
+static_assert(clap::SupportsAudioPorts<ogler::Ogler>);
 
 CLAP_EXPORT extern "C" const clap_plugin_entry_t clap_entry{
     .clap_version = CLAP_VERSION,

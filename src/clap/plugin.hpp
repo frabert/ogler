@@ -20,6 +20,7 @@
 
 #include <clap/entry.h>
 #include <clap/events.h>
+#include <clap/ext/audio-ports.h>
 #include <clap/ext/gui.h>
 #include <clap/ext/params.h>
 #include <clap/ext/state.h>
@@ -157,6 +158,15 @@ concept SupportsGui =
       { plugin.gui_suggest_title(api) } -> std::same_as<void>;
       { plugin.gui_show() } -> std::same_as<bool>;
       { plugin.gui_hide() } -> std::same_as<bool>;
+    };
+
+template <typename T>
+concept SupportsAudioPorts =
+    requires(T &plugin, bool is_input, uint32_t index) {
+      { plugin.audio_ports_count(is_input) } -> std::same_as<uint32_t>;
+      {
+        plugin.audio_ports_get(index, is_input)
+      } -> std::same_as<std::optional<clap_audio_port_info_t>>;
     };
 
 template <typename T>
@@ -440,6 +450,32 @@ const clap_plugin_t *create_plugin(const clap_host_t *host) {
                           },
                   };
                   return &gui;
+                } else if (SupportsAudioPorts<T> &&
+                           id == CLAP_EXT_AUDIO_PORTS) {
+                  static clap_plugin_audio_ports_t audio_ports{
+                      .count =
+                          [](const clap_plugin_t *plugin, bool is_input) {
+                            auto self =
+                                static_cast<container *>(plugin->plugin_data);
+                            return self->plugin_data.audio_ports_count(
+                                is_input);
+                          },
+                      .get =
+                          [](const clap_plugin_t *plugin, uint32_t index,
+                             bool is_input, clap_audio_port_info_t *info) {
+                            auto self =
+                                static_cast<container *>(plugin->plugin_data);
+                            auto res = self->plugin_data.audio_ports_get(
+                                index, is_input);
+                            if (res) {
+                              *info = *res;
+                              return true;
+                            } else {
+                              return false;
+                            }
+                          },
+                  };
+                  return &audio_ports;
                 }
                 return self->plugin_data.get_extension(id);
               },

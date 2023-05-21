@@ -17,12 +17,15 @@
 */
 
 #include "ogler.hpp"
-#include "clap/events.h"
-#include "clap/ext/params.h"
 #include "compile_shader.hpp"
 #include "ogler_debug.hpp"
 #include "ogler_editor.hpp"
 #include "ogler_params.hpp"
+
+#include <clap/events.h>
+#include <clap/ext/audio-ports.h>
+#include <clap/ext/params.h>
+#include <clap/process.h>
 
 #include <algorithm>
 #include <nlohmann/json.hpp>
@@ -401,7 +404,18 @@ void Ogler::reset() {}
 
 clap_process_status Ogler::process(const clap_process_t &process) {
   handle_events(*process.in_events);
-  return CLAP_PROCESS_SLEEP;
+  if (process.audio_inputs->data64) {
+    std::copy_n(process.audio_inputs->data64[0], process.frames_count,
+                process.audio_outputs->data64[0]);
+    std::copy_n(process.audio_inputs->data64[1], process.frames_count,
+                process.audio_outputs->data64[1]);
+  } else {
+    std::copy_n(process.audio_inputs->data32[0], process.frames_count,
+                process.audio_outputs->data32[0]);
+    std::copy_n(process.audio_inputs->data32[1], process.frames_count,
+                process.audio_outputs->data32[1]);
+  }
+  return CLAP_PROCESS_CONTINUE;
 }
 
 void *Ogler::get_extension(std::string_view id) { return nullptr; }
@@ -979,5 +993,21 @@ IVideoFrame *Ogler::video_process_frame(std::span<const double> parms,
   std::swap(output_image_view, previous_image_view);
 
   return output_frame;
+}
+
+uint32_t Ogler::audio_ports_count(bool is_input) { return 1; }
+
+std::optional<clap_audio_port_info_t> Ogler::audio_ports_get(uint32_t index,
+                                                             bool is_input) {
+  if (index >= 1) {
+    return std::nullopt;
+  }
+  return {{
+      .id = 0,
+      .flags = CLAP_AUDIO_PORT_IS_MAIN | CLAP_AUDIO_PORT_SUPPORTS_64BITS,
+      .channel_count = 2,
+      .port_type = CLAP_PORT_STEREO,
+      .in_place_pair = 0,
+  }};
 }
 } // namespace ogler

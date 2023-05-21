@@ -30,6 +30,7 @@
 #include <video_processor.h>
 
 #include <clap/events.h>
+#include <clap/ext/audio-ports.h>
 #include <clap/ext/gui.h>
 #include <clap/ext/params.h>
 #include <clap/host.h>
@@ -258,5 +259,9 @@ public:
   void gui_suggest_title(std::string_view title);
   bool gui_show();
   bool gui_hide();
+
+  uint32_t audio_ports_count(bool is_input);
+  std::optional<clap_audio_port_info_t> audio_ports_get(uint32_t index,
+                                                        bool is_input);
 };
 } // namespace ogler
