@@ -324,6 +324,12 @@ Ogler::~Ogler() {
   vproc = nullptr;
 }
 
+// FIXME: UGLY HACK! Fix as soon as REAPER has a way to access this data
+struct reaper_plugin_context {
+  char stuff[0x4d8];
+  void *ctx;
+};
+
 bool Ogler::init() {
   if (std::string_view{host.vendor} != "Cockos" ||
       std::string_view{host.name} != "REAPER") {
@@ -356,7 +362,8 @@ bool Ogler::init() {
   }
 
   vproc = std::unique_ptr<IREAPERVideoProcessor>(video_CreateVideoProcessor(
-      host.host_data, IREAPERVideoProcessor::REAPER_VIDEO_PROCESSOR_VERSION));
+      static_cast<reaper_plugin_context *>(host.host_data)->ctx,
+      IREAPERVideoProcessor::REAPER_VIDEO_PROCESSOR_VERSION));
   vproc->userdata = this;
   vproc->process_frame =
       [](IREAPERVideoProcessor *vproc, const double *parmlist, int nparms,
@@ -369,7 +376,7 @@ bool Ogler::init() {
   vproc->get_parameter_value = [](IREAPERVideoProcessor *vproc, int idx,
                                   double *valueOut) -> bool {
     auto plugin = static_cast<Ogler *>(vproc->userdata);
-    auto val = plugin->video_get_parameter(idx);
+    auto val = plugin->params_get_value(static_cast<clap_id>(idx));
     if (val.has_value()) {
       *valueOut = *val;
       return true;
@@ -378,10 +385,6 @@ bool Ogler::init() {
     }
   };
   return true;
-}
-
-std::optional<double> Ogler::video_get_parameter(int index) {
-  return std::nullopt;
 }
 
 bool Ogler::activate(double sample_rate, uint32_t min_frames_count,

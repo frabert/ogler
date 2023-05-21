@@ -198,7 +198,6 @@ class Ogler final {
   IVideoFrame *video_process_frame(std::span<const double> parms,
                                    double project_time, double framerate,
                                    FrameFormat force_format) noexcept;
-  std::optional<double> video_get_parameter(int index);
 
   void handle_events(const clap_input_events_t &events);
 
