@@ -20,22 +20,21 @@
 
 #include <clap/ext/params.h>
 
-#include "ogler_params.hpp"
 #undef min
 
 namespace ogler {
 
 uint32_t Ogler::params_count() {
   std::unique_lock<std::recursive_mutex> lock(params_mutex);
-  return parameters.size();
+  return data.parameters.size();
 }
 
 std::optional<clap_param_info_t> Ogler::params_get_info(uint32_t param_index) {
   std::unique_lock<std::recursive_mutex> lock(params_mutex);
-  if (param_index >= parameters.size()) {
+  if (param_index >= data.parameters.size()) {
     return std::nullopt;
   }
-  auto &param = parameters[param_index];
+  auto &param = data.parameters[param_index];
   clap_param_info_t res{
       .id = param_index,
       .flags = CLAP_PARAM_IS_AUTOMATABLE,
@@ -56,21 +55,21 @@ std::optional<clap_param_info_t> Ogler::params_get_info(uint32_t param_index) {
 
 std::optional<double> Ogler::params_get_value(clap_id param_id) {
   std::unique_lock<std::recursive_mutex> lock(params_mutex);
-  if (param_id >= parameters.size()) {
+  if (param_id >= data.parameters.size()) {
     return std::nullopt;
   }
-  return parameters[param_id].value;
+  return data.parameters[param_id].value;
 }
 
 bool Ogler::params_value_to_text(clap_id param_id, double value,
                                  std::span<char> out_buffer) {
   std::unique_lock<std::recursive_mutex> lock(params_mutex);
-  if (param_id >= parameters.size()) {
+  if (param_id >= data.parameters.size()) {
     return false;
   }
 
   std::snprintf(out_buffer.data(), out_buffer.size(), "%.2f",
-                parameters[param_id].value);
+                data.parameters[param_id].value);
   return true;
 }
 
@@ -78,7 +77,7 @@ std::optional<double>
 Ogler::params_text_to_value(clap_id param_id,
                             std::string_view param_value_text) {
   std::unique_lock<std::recursive_mutex> lock(params_mutex);
-  if (param_id >= parameters.size()) {
+  if (param_id >= data.parameters.size()) {
     return std::nullopt;
   }
   return std::stof(param_value_text.data());
@@ -101,7 +100,7 @@ void Ogler::handle_events(const clap_input_events_t &events) {
         *static_cast<float *>(param_value_event->cookie) =
             param_value_event->value;
       } else {
-        [[unlikely]] parameters[param_value_event->param_id].value =
+        [[unlikely]] data.parameters[param_value_event->param_id].value =
             param_value_event->value;
       }
       break;

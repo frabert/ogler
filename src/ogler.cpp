@@ -20,7 +20,6 @@
 #include "compile_shader.hpp"
 #include "ogler_debug.hpp"
 #include "ogler_editor.hpp"
-#include "ogler_params.hpp"
 
 #include <clap/events.h>
 #include <clap/ext/audio-ports.h>
@@ -347,10 +346,6 @@ bool Ogler::init() {
     transition_image_layout_download(command_buffer, previous_image);
   });
 
-  if (auto err = recompile_shaders()) {
-    DBG << *err << '\n';
-  }
-
   auto eel_gmem_attach =
       get_reaper_function<eel_gmem_attach_f>("eel_gmem_attach");
   gmem = eel_gmem_attach("ogler", true);
@@ -392,6 +387,9 @@ bool Ogler::init() {
 
 bool Ogler::activate(double sample_rate, uint32_t min_frames_count,
                      uint32_t max_frames_count) {
+  if (auto err = recompile_shaders()) {
+    DBG << *err << '\n';
+  }
   return true;
 }
 void Ogler::deactivate() {}
@@ -426,11 +424,23 @@ void Ogler::on_main_thread() {
   host_params->rescan(&host, CLAP_PARAM_RESCAN_ALL);
 }
 
+void to_json(nlohmann::json &j, const Parameter &p) {
+  j = {
+      {"info", p.info},
+      {"value", p.value},
+  };
+}
+
+void from_json(const nlohmann::json &j, Parameter &p) {
+  j.at("info").get_to(p.info);
+  j.at("value").get_to(p.value);
+}
+
 void PatchData::deserialize(std::istream &s) {
   nlohmann::json obj;
   s >> obj;
 
-  video_shader = obj["video_shader"];
+  video_shader = obj.at("video_shader");
 
   do {
     auto &editor_data = obj["editor"];
@@ -445,6 +455,11 @@ void PatchData::deserialize(std::istream &s) {
     editor_h = editor_data["height"];
     editor_zoom = editor_data["zoom"];
   } while (false);
+
+  try {
+    obj.at("parameters").get_to(parameters);
+  } catch (const nlohmann::json::out_of_range &) {
+  }
 }
 
 void PatchData::serialize(std::ostream &s) {
@@ -458,6 +473,7 @@ void PatchData::serialize(std::ostream &s) {
               {"zoom", editor_zoom},
           },
       },
+      {"parameters", parameters},
   };
   s << obj;
 }
@@ -520,11 +536,11 @@ layout(binding = 5) uniform sampler2D ogler_previous_frame;
     return std::move(std::get<std::string>(res));
   }
 
-  auto data = std::move(std::get<ShaderData>(res));
-  if (output_width != data.output_width ||
-      output_height != data.output_height) {
-    output_width = data.output_width;
-    output_height = data.output_height;
+  auto shader_data = std::move(std::get<ShaderData>(res));
+  if (output_width != shader_data.output_width ||
+      output_height != shader_data.output_height) {
+    output_width = shader_data.output_width;
+    output_height = shader_data.output_height;
 
     output_transfer_buffer = shared.vulkan.create_buffer<char>(
         {}, output_width * output_height * 4,
@@ -553,36 +569,35 @@ layout(binding = 5) uniform sampler2D ogler_previous_frame;
     });
   }
 
-  int old_num = parameters.size();
-  parameters.clear();
-  for (auto param : data.parameters) {
-    parameters.push_back(Parameter{
-        .info = param,
-        .value = param.default_value,
-    });
+  size_t old_num = data.parameters.size();
+  data.parameters.resize(shader_data.parameters.size());
+  for (size_t i = 0; i < shader_data.parameters.size(); ++i) {
+    auto &param = shader_data.parameters[i];
+    data.parameters[i].info = param;
+    if (i >= old_num) {
+      data.parameters[i].value = param.default_value;
+    }
   }
 
   try {
-    compute = std::make_unique<Compute>(shared.vulkan, data.spirv_code);
+    compute = std::make_unique<Compute>(shared.vulkan, shader_data.spirv_code);
   } catch (vk::Error &e) {
     return e.what();
   }
 
-  if (old_num != parameters.size()) {
-    if (parameters.size()) {
-      params_buffer = shared.vulkan.create_buffer<float>(
-          {}, parameters.size(), vk::BufferUsageFlagBits::eUniformBuffer,
-          vk::SharingMode::eExclusive,
-          vk::MemoryPropertyFlagBits::eHostCoherent |
-              vk::MemoryPropertyFlagBits::eHostVisible);
-    } else {
-      params_buffer = std::nullopt;
-    }
+  if (data.parameters.size()) {
+    params_buffer = shared.vulkan.create_buffer<float>(
+        {}, data.parameters.size(), vk::BufferUsageFlagBits::eUniformBuffer,
+        vk::SharingMode::eExclusive,
+        vk::MemoryPropertyFlagBits::eHostCoherent |
+            vk::MemoryPropertyFlagBits::eHostVisible);
+  } else {
+    params_buffer = std::nullopt;
   }
 
   host.request_callback(&host);
 
-  return {};
+  return std::nullopt;
 }
 
 static void transition_image_layout_upload(vk::raii::CommandBuffer &cmd,
@@ -890,7 +905,7 @@ IVideoFrame *Ogler::video_process_frame(std::span<const double> parms,
     if (params_buffer) {
       vk::DescriptorBufferInfo uniforms_info{
           .buffer = *params_buffer->buffer,
-          .range = sizeof(float) * parameters.size(),
+          .range = sizeof(float) * data.parameters.size(),
       };
       // keeping in mind parms[0] is iWet
       for (size_t i = 0; i < parms.size() - 1; ++i) {

@@ -36,6 +36,7 @@
 #include <clap/host.h>
 #include <clap/plugin.h>
 
+#include "compile_shader.hpp"
 #include "vulkan_context.hpp"
 
 #define OGLER_STRINGIZE_(x) #x
@@ -76,6 +77,14 @@ public:
   void unlock() { leave(); }
 };
 
+struct Parameter {
+  ParameterInfo info;
+  float value;
+};
+
+void to_json(nlohmann::json &j, const Parameter &p);
+void from_json(const nlohmann::json &j, Parameter &p);
+
 struct PatchData {
   static constexpr int default_editor_w = 1024;
   static constexpr int default_editor_h = 768;
@@ -95,6 +104,8 @@ struct PatchData {
   int editor_w = default_editor_w;
   int editor_h = default_editor_h;
   int editor_zoom = default_editor_zoom;
+
+  std::vector<Parameter> parameters;
 
   void deserialize(std::istream &);
   void serialize(std::ostream &);
@@ -152,9 +163,6 @@ class Ogler final {
   std::unique_ptr<Editor> editor;
 
   PatchData data;
-
-  struct Parameter;
-  std::vector<Parameter> parameters;
   std::string param_text;
 
   std::optional<std::string> recompile_shaders();

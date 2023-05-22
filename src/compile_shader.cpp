@@ -316,4 +316,26 @@ compile_shader(const std::vector<std::pair<std::string, std::string>> &source,
   glslang::GlslangToSpv(*iterm, data.spirv_code);
   return data;
 }
+
+void to_json(nlohmann::json &j, const ParameterInfo &p) {
+  j = {
+      {"name", p.name},
+      {"display_name", p.display_name},
+      {"default_value", p.default_value},
+      {"minimum_val", p.minimum_val},
+      {"maximum_val", p.maximum_val},
+      {"middle_value", p.middle_value},
+      {"step_size", p.step_size},
+  };
+}
+
+void from_json(const nlohmann::json &j, ParameterInfo &p) {
+  j.at("name").get_to(p.name);
+  j.at("display_name").get_to(p.display_name);
+  j.at("default_value").get_to(p.default_value);
+  j.at("minimum_val").get_to(p.minimum_val);
+  j.at("maximum_val").get_to(p.maximum_val);
+  j.at("middle_value").get_to(p.middle_value);
+  j.at("step_size").get_to(p.step_size);
+}
 } // namespace ogler

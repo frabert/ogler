@@ -23,6 +23,8 @@
 #include <variant>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 namespace ogler {
 
 struct ParameterInfo {
@@ -34,6 +36,9 @@ struct ParameterInfo {
   float middle_value;
   float step_size;
 };
+
+void to_json(nlohmann::json &j, const ParameterInfo &p);
+void from_json(const nlohmann::json &j, ParameterInfo &p);
 
 struct ShaderData {
   std::vector<unsigned> spirv_code;
