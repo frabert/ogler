@@ -1,5 +1,5 @@
 /*
-    Ogler - Use OpenGL shaders in REAPER
+    Ogler - Use GLSL shaders in REAPER
     Copyright (C) 2023  Francesco Bertolaccini <francesco@bertolaccini.dev>
 
     This program is free software: you can redistribute it and/or modify
