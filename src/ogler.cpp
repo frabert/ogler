@@ -289,7 +289,7 @@ static void transition_image_layout_download(vk::raii::CommandBuffer &cmd,
   cmd.pipelineBarrier(sourceStage, destinationStage, {}, {}, {}, {barrier});
 }
 
-Ogler::Ogler(const clap_host_t &host)
+Ogler::Ogler(const clap::host &host)
     : host(host), shared(get_shared_vulkan()),
       command_buffer(shared.vulkan.create_command_buffer()),
       queue(shared.vulkan.get_queue(0)), fence(shared.vulkan.create_fence()),
@@ -418,11 +418,7 @@ clap_process_status Ogler::process(const clap_process_t &process) {
 
 void *Ogler::get_extension(std::string_view id) { return nullptr; }
 
-void Ogler::on_main_thread() {
-  auto host_params = static_cast<const clap_host_params_t *>(
-      host.get_extension(&host, CLAP_EXT_PARAMS));
-  host_params->rescan(&host, CLAP_PARAM_RESCAN_ALL);
-}
+void Ogler::on_main_thread() { host.params_rescan(CLAP_PARAM_RESCAN_ALL); }
 
 void to_json(nlohmann::json &j, const Parameter &p) {
   j = {
@@ -595,7 +591,7 @@ layout(binding = 5) uniform sampler2D ogler_previous_frame;
     params_buffer = std::nullopt;
   }
 
-  host.request_callback(&host);
+  host.request_callback();
 
   return std::nullopt;
 }

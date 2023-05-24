@@ -36,6 +36,8 @@
 #include <clap/host.h>
 #include <clap/plugin.h>
 
+#include "clap/host.hpp"
+
 #include "compile_shader.hpp"
 #include "vulkan_context.hpp"
 
@@ -127,7 +129,7 @@ struct InputImage {
 };
 
 class Ogler final {
-  const clap_host_t &host;
+  const clap::host &host;
   std::unique_ptr<IREAPERVideoProcessor> vproc;
 
   int output_width = 1024;
@@ -199,8 +201,8 @@ class Ogler final {
   }
 
   template <typename T> T *get_reaper_function(std::string_view name) {
-    auto reaper_plugin = static_cast<const reaper_plugin_info_t *>(
-        host.get_extension(&host, "cockos.reaper_extension"));
+    auto reaper_plugin =
+        host.get_extension<reaper_plugin_info_t>("cockos.reaper_extension");
     return reinterpret_cast<T *>(reaper_plugin->GetFunc(name.data()));
   }
 
@@ -223,7 +225,7 @@ public:
   static constexpr const char *description = "Use GLSL video shaders in REAPER";
   static constexpr const char *features[] = {"reaper:video-processor", {}};
 
-  Ogler(const clap_host_t &host);
+  Ogler(const clap::host &host);
   ~Ogler();
 
   bool init();

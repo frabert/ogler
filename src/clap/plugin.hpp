@@ -34,6 +34,8 @@
 #include <string>
 #include <string_view>
 
+#include "host.hpp"
+
 namespace clap {
 
 template <typename Elem = char, typename Traits = std::char_traits<Elem>>
@@ -174,7 +176,7 @@ const clap_plugin_t *create_plugin(const clap_host_t *host) {
   struct container {
     T plugin_data;
     clap_plugin_t plugin;
-    container(const clap_host_t &host)
+    container(const ::clap::host &host)
         : plugin_data(host),
           plugin({
               .desc = &plugin_descriptor<T>::value,
@@ -486,7 +488,7 @@ const clap_plugin_t *create_plugin(const clap_host_t *host) {
                   },
           }) {}
   };
-  return &(new container(*host))->plugin;
+  return &(new container(*static_cast<const ::clap::host *>(host)))->plugin;
 };
 
 namespace detail {
