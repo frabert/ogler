@@ -38,12 +38,12 @@ static vk::raii::Instance make_instance(vk::raii::Context &ctx) {
   };
   const std::vector<const char *> layers = {
 #ifndef NDEBUG
-      "VK_LAYER_KHRONOS_validation"
+      "VK_LAYER_KHRONOS_validation",
 #endif
   };
   const std::vector<const char *> extensions = {
 #ifndef NDEBUG
-      "VK_EXT_debug_utils"
+      "VK_EXT_debug_utils",
 #endif
   };
   vk::InstanceCreateInfo instance_create_info{

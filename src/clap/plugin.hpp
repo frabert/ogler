@@ -535,5 +535,13 @@ template <typename... Ts> struct plugin_factory {
         return clap::detail::create_plugin<Ts...>()(host, id);
       },
   };
+
+  static const void *getter(const char *factory_id) {
+    if (std::string_view{factory_id} != CLAP_PLUGIN_FACTORY_ID) {
+      return nullptr;
+    }
+
+    return &value;
+  }
 };
 } // namespace clap

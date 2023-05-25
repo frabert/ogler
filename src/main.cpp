@@ -70,11 +70,5 @@ CLAP_EXPORT extern "C" const clap_plugin_entry_t clap_entry{
     .clap_version = CLAP_VERSION,
     .init = [](const char *plugin_path) { return true; },
     .deinit = []() {},
-    .get_factory = [](const char *factory_id) -> const void * {
-      if (std::string_view{factory_id} != CLAP_PLUGIN_FACTORY_ID) {
-        return nullptr;
-      }
-
-      return &clap::plugin_factory<ogler::Ogler>::value;
-    },
+    .get_factory = &clap::plugin_factory<ogler::Ogler>::getter,
 };

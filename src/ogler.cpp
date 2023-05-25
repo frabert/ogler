@@ -348,44 +348,50 @@ Ogler::~Ogler() {
   vproc = nullptr;
 }
 
-// FIXME: UGLY HACK! Fix as soon as REAPER has a way to access this data
-struct reaper_plugin_context {
-  char stuff[0x4d8];
-  void *ctx;
-};
-
 bool Ogler::init() {
   if (std::string_view{host.vendor} != "Cockos" ||
       std::string_view{host.name} != "REAPER") {
+    host.log(CLAP_LOG_FATAL, "ogler only works on REAPER\n");
     return false;
   }
-  eel_mutex = EELMutex{
-      get_reaper_function<mutex_stub_f *>("NSEEL_HOSTSTUB_EnterMutex"),
-      get_reaper_function<mutex_stub_f *>("NSEEL_HOSTSTUB_LEAVEMutex")};
+
+  mutex_stub_f *enter, *leave;
+  get_reaper_function("NSEEL_HOSTSTUB_EnterMutex", enter);
+  get_reaper_function("NSEEL_HOSTSTUB_LEAVEMutex", leave);
+  eel_mutex = EELMutex{enter, leave};
 
   one_shot_execute([&]() {
     transition_image_layout_download(command_buffer, output_image);
     transition_image_layout_download(command_buffer, previous_image);
   });
 
-  auto eel_gmem_attach =
-      get_reaper_function<eel_gmem_attach_f *>("eel_gmem_attach");
+  eel_gmem_attach_f *eel_gmem_attach;
+  get_reaper_function<eel_gmem_attach_f *>("eel_gmem_attach", eel_gmem_attach);
   gmem = eel_gmem_attach("ogler", true);
   static IREAPERVideoProcessor *(*video_CreateVideoProcessor)(void *fxctx,
                                                               int version);
+  static void *(*clap_get_reaper_context)(const clap_host_t *host, int request);
 
   if (!video_CreateVideoProcessor) {
-    video_CreateVideoProcessor =
-        get_reaper_function<decltype(video_CreateVideoProcessor)>(
-            "video_CreateVideoProcessor");
-    ShowConsoleMsg =
-        get_reaper_function<decltype(ShowConsoleMsg)>("ShowConsoleMsg");
-    EnumProjects = get_reaper_function<decltype(EnumProjects)>("EnumProjects");
+    get_reaper_function("video_CreateVideoProcessor",
+                        video_CreateVideoProcessor);
+    get_reaper_function("ShowConsoleMsg", ShowConsoleMsg);
+    get_reaper_function("EnumProjects", EnumProjects);
+    get_reaper_function("clap_get_reaper_context", clap_get_reaper_context);
   }
 
+  if (!clap_get_reaper_context) {
+    host.log(CLAP_LOG_FATAL,
+             "The REAPER version you're using does not support the "
+             "clap_get_reaper_context API, first introduced in 6.80\nMaybe "
+             "your version is too old?\n");
+    return false;
+  }
+
+  auto reaper_ctx = clap_get_reaper_context(&host, 4);
+
   vproc = std::unique_ptr<IREAPERVideoProcessor>(video_CreateVideoProcessor(
-      static_cast<reaper_plugin_context *>(host.host_data)->ctx,
-      IREAPERVideoProcessor::REAPER_VIDEO_PROCESSOR_VERSION));
+      reaper_ctx, IREAPERVideoProcessor::REAPER_VIDEO_PROCESSOR_VERSION));
   vproc->userdata = this;
   vproc->process_frame =
       [](IREAPERVideoProcessor *vproc, const double *parmlist, int nparms,
@@ -407,12 +413,8 @@ bool Ogler::init() {
     }
   };
 
-  projectconfig_var_addr =
-      get_reaper_function<decltype(projectconfig_var_addr)>(
-          "projectconfig_var_addr");
-  projectconfig_var_getoffs =
-      get_reaper_function<decltype(projectconfig_var_getoffs)>(
-          "projectconfig_var_getoffs");
+  get_reaper_function("projectconfig_var_addr", projectconfig_var_addr);
+  get_reaper_function("projectconfig_var_getoffs", projectconfig_var_getoffs);
 
   int sz{};
   reaper_vidw_idx = projectconfig_var_getoffs("projvidw", &sz);

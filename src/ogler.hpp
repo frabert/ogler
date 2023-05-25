@@ -209,10 +209,11 @@ class Ogler final {
     command_buffer.reset();
   }
 
-  template <typename T> T get_reaper_function(std::string_view name) {
+  template <typename T>
+  void get_reaper_function(std::string_view name, T &out) {
     auto reaper_plugin =
         host.get_extension<reaper_plugin_info_t>("cockos.reaper_extension");
-    return reinterpret_cast<T>(reaper_plugin->GetFunc(name.data()));
+    out = reinterpret_cast<T>(reaper_plugin->GetFunc(name.data()));
   }
 
   IVideoFrame *video_process_frame(std::span<const double> parms,

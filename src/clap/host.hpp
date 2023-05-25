@@ -20,6 +20,7 @@
 
 #include <clap/ext/audio-ports.h>
 #include <clap/ext/gui.h>
+#include <clap/ext/log.h>
 #include <clap/ext/params.h>
 #include <clap/ext/state.h>
 #include <clap/host.h>
@@ -99,6 +100,11 @@ struct host final : clap_host_t {
     auto audio_ports =
         get_extension<clap_host_audio_ports_t>(CLAP_EXT_AUDIO_PORTS);
     audio_ports->rescan(this, flags);
+  }
+
+  inline void log(clap_log_severity severity, const char *msg) const {
+    auto _log = get_extension<clap_host_log_t>(CLAP_EXT_LOG);
+    _log->log(this, severity, msg);
   }
 };
 static_assert(sizeof(host) == sizeof(clap_host_t));
