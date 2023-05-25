@@ -43,8 +43,8 @@ void from_json(const nlohmann::json &j, ParameterInfo &p);
 struct ShaderData {
   std::vector<unsigned> spirv_code;
   std::vector<ParameterInfo> parameters;
-  int output_width = 1024;
-  int output_height = 768;
+  std::optional<int> output_width;
+  std::optional<int> output_height;
 };
 
 std::variant<ShaderData, std::string>

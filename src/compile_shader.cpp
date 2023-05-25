@@ -150,8 +150,8 @@ static const TBuiltInResource DefaultTBuiltInResource = {
 
 class ParamCollector : public glslang::TIntermTraverser {
   std::vector<ParameterInfo> &params;
-  int &output_width;
-  int &output_height;
+  std::optional<int> &output_width;
+  std::optional<int> &output_height;
   int params_binding;
 
   ParameterInfo *find_param(const std::string &name) {

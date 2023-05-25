@@ -289,28 +289,50 @@ static void transition_image_layout_download(vk::raii::CommandBuffer &cmd,
   cmd.pipelineBarrier(sourceStage, destinationStage, {}, {}, {}, {barrier});
 }
 
+int Ogler::get_output_width() {
+  if (shader_output_width.has_value()) {
+    return *shader_output_width;
+  } else if (project_output_width) {
+    return *project_output_width;
+  } else {
+    return fallback_output_width;
+  }
+}
+
+int Ogler::get_output_height() {
+  if (shader_output_height.has_value()) {
+    return *shader_output_height;
+  } else if (project_output_height) {
+    return *project_output_height;
+  } else {
+    return fallback_output_height;
+  }
+}
+
 Ogler::Ogler(const clap::host &host)
     : host(host), shared(get_shared_vulkan()),
       command_buffer(shared.vulkan.create_command_buffer()),
       queue(shared.vulkan.get_queue(0)), fence(shared.vulkan.create_fence()),
       sampler(shared.vulkan.create_sampler()),
       output_transfer_buffer(shared.vulkan.create_buffer<char>(
-          {}, output_width * output_height * 4,
+          {}, get_output_width() * get_output_height() * 4,
           vk::BufferUsageFlagBits::eTransferDst, vk::SharingMode::eExclusive,
           vk::MemoryPropertyFlagBits::eHostVisible |
               vk::MemoryPropertyFlagBits::eHostCoherent)),
-      output_image(shared.vulkan.create_image(
-          output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
-          vk::ImageUsageFlagBits::eStorage |
-              vk::ImageUsageFlagBits::eTransferSrc |
-              vk::ImageUsageFlagBits::eSampled)),
+      output_image(
+          shared.vulkan.create_image(get_output_width(), get_output_height(),
+                                     RGBAFormat, vk::ImageTiling::eOptimal,
+                                     vk::ImageUsageFlagBits::eStorage |
+                                         vk::ImageUsageFlagBits::eTransferSrc |
+                                         vk::ImageUsageFlagBits::eSampled)),
       output_image_view(
           shared.vulkan.create_image_view(output_image, RGBAFormat)),
-      previous_image(shared.vulkan.create_image(
-          output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
-          vk::ImageUsageFlagBits::eStorage |
-              vk::ImageUsageFlagBits::eTransferSrc |
-              vk::ImageUsageFlagBits::eSampled)),
+      previous_image(
+          shared.vulkan.create_image(get_output_width(), get_output_height(),
+                                     RGBAFormat, vk::ImageTiling::eOptimal,
+                                     vk::ImageUsageFlagBits::eStorage |
+                                         vk::ImageUsageFlagBits::eTransferSrc |
+                                         vk::ImageUsageFlagBits::eSampled)),
       previous_image_view(
           shared.vulkan.create_image_view(previous_image, RGBAFormat)),
       empty_input(create_input_image(1, 1)),
@@ -337,9 +359,9 @@ bool Ogler::init() {
       std::string_view{host.name} != "REAPER") {
     return false;
   }
-  eel_mutex =
-      EELMutex{get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_EnterMutex"),
-               get_reaper_function<mutex_stub_f>("NSEEL_HOSTSTUB_LEAVEMutex")};
+  eel_mutex = EELMutex{
+      get_reaper_function<mutex_stub_f *>("NSEEL_HOSTSTUB_EnterMutex"),
+      get_reaper_function<mutex_stub_f *>("NSEEL_HOSTSTUB_LEAVEMutex")};
 
   one_shot_execute([&]() {
     transition_image_layout_download(command_buffer, output_image);
@@ -347,16 +369,18 @@ bool Ogler::init() {
   });
 
   auto eel_gmem_attach =
-      get_reaper_function<eel_gmem_attach_f>("eel_gmem_attach");
+      get_reaper_function<eel_gmem_attach_f *>("eel_gmem_attach");
   gmem = eel_gmem_attach("ogler", true);
   static IREAPERVideoProcessor *(*video_CreateVideoProcessor)(void *fxctx,
                                                               int version);
 
   if (!video_CreateVideoProcessor) {
     video_CreateVideoProcessor =
-        get_reaper_function<IREAPERVideoProcessor *(void *, int)>(
+        get_reaper_function<decltype(video_CreateVideoProcessor)>(
             "video_CreateVideoProcessor");
-    ShowConsoleMsg = get_reaper_function<void(const char *)>("ShowConsoleMsg");
+    ShowConsoleMsg =
+        get_reaper_function<decltype(ShowConsoleMsg)>("ShowConsoleMsg");
+    EnumProjects = get_reaper_function<decltype(EnumProjects)>("EnumProjects");
   }
 
   vproc = std::unique_ptr<IREAPERVideoProcessor>(video_CreateVideoProcessor(
@@ -382,6 +406,21 @@ bool Ogler::init() {
       return false;
     }
   };
+
+  projectconfig_var_addr =
+      get_reaper_function<decltype(projectconfig_var_addr)>(
+          "projectconfig_var_addr");
+  projectconfig_var_getoffs =
+      get_reaper_function<decltype(projectconfig_var_getoffs)>(
+          "projectconfig_var_getoffs");
+
+  int sz{};
+  reaper_vidw_idx = projectconfig_var_getoffs("projvidw", &sz);
+  assert(sz == 4);
+
+  reaper_vidh_idx = projectconfig_var_getoffs("projvidh", &sz);
+  assert(sz == 4);
+
   return true;
 }
 
@@ -533,37 +572,6 @@ layout(binding = 5) uniform sampler2D ogler_previous_frame;
   }
 
   auto shader_data = std::move(std::get<ShaderData>(res));
-  if (output_width != shader_data.output_width ||
-      output_height != shader_data.output_height) {
-    output_width = shader_data.output_width;
-    output_height = shader_data.output_height;
-
-    output_transfer_buffer = shared.vulkan.create_buffer<char>(
-        {}, output_width * output_height * 4,
-        vk::BufferUsageFlagBits::eTransferDst, vk::SharingMode::eExclusive,
-        vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent);
-    output_image = shared.vulkan.create_image(
-        output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
-        vk::ImageUsageFlagBits::eStorage |
-            vk::ImageUsageFlagBits::eTransferSrc |
-            vk::ImageUsageFlagBits::eSampled);
-    output_image_view =
-        shared.vulkan.create_image_view(output_image, RGBAFormat);
-
-    previous_image = shared.vulkan.create_image(
-        output_width, output_height, RGBAFormat, vk::ImageTiling::eOptimal,
-        vk::ImageUsageFlagBits::eStorage |
-            vk::ImageUsageFlagBits::eTransferSrc |
-            vk::ImageUsageFlagBits::eSampled);
-    previous_image_view =
-        shared.vulkan.create_image_view(previous_image, RGBAFormat);
-
-    one_shot_execute([&]() {
-      transition_image_layout_download(command_buffer, output_image);
-      transition_image_layout_download(command_buffer, previous_image);
-    });
-  }
 
   size_t old_num = data.parameters.size();
   data.parameters.resize(shader_data.parameters.size());
@@ -670,6 +678,56 @@ InputImage Ogler::create_input_image(int w, int h) {
   };
 }
 
+void Ogler::update_frame_buffers() noexcept {
+  auto old_width = output_image.width;
+  auto old_height = output_image.height;
+
+  project_output_width = nullptr;
+  project_output_height = nullptr;
+  do {
+    auto cur_proj = EnumProjects(-1, nullptr, 0);
+    if (!cur_proj) {
+      break;
+    }
+
+    project_output_width =
+        static_cast<int *>(projectconfig_var_addr(cur_proj, reaper_vidw_idx));
+    project_output_height =
+        static_cast<int *>(projectconfig_var_addr(cur_proj, reaper_vidh_idx));
+  } while (false);
+
+  auto new_width = get_output_width();
+  auto new_height = get_output_height();
+
+  if (new_width != old_width || new_height != old_height) {
+    output_transfer_buffer = shared.vulkan.create_buffer<char>(
+        {}, new_width * new_height * 4, vk::BufferUsageFlagBits::eTransferDst,
+        vk::SharingMode::eExclusive,
+        vk::MemoryPropertyFlagBits::eHostVisible |
+            vk::MemoryPropertyFlagBits::eHostCoherent);
+    output_image = shared.vulkan.create_image(
+        new_width, new_height, RGBAFormat, vk::ImageTiling::eOptimal,
+        vk::ImageUsageFlagBits::eStorage |
+            vk::ImageUsageFlagBits::eTransferSrc |
+            vk::ImageUsageFlagBits::eSampled);
+    output_image_view =
+        shared.vulkan.create_image_view(output_image, RGBAFormat);
+
+    previous_image = shared.vulkan.create_image(
+        new_width, new_height, RGBAFormat, vk::ImageTiling::eOptimal,
+        vk::ImageUsageFlagBits::eStorage |
+            vk::ImageUsageFlagBits::eTransferSrc |
+            vk::ImageUsageFlagBits::eSampled);
+    previous_image_view =
+        shared.vulkan.create_image_view(previous_image, RGBAFormat);
+
+    one_shot_execute([&]() {
+      transition_image_layout_download(command_buffer, output_image);
+      transition_image_layout_download(command_buffer, previous_image);
+    });
+  }
+}
+
 IVideoFrame *Ogler::video_process_frame(std::span<const double> parms,
                                         double project_time, double framerate,
                                         FrameFormat force_format) noexcept {
@@ -682,20 +740,20 @@ IVideoFrame *Ogler::video_process_frame(std::span<const double> parms,
     return nullptr;
   }
 
-  output_frame =
-      vproc->newVideoFrame(output_width, output_height, (int)FrameFormat::RGBA);
+  update_frame_buffers();
+
+  output_frame = vproc->newVideoFrame(output_image.width, output_image.height,
+                                      (int)FrameFormat::RGBA);
   auto output_rowspan = output_frame->get_rowspan();
   auto output_w = output_frame->get_w();
   auto output_h = output_frame->get_h();
-  assert(output_w == output_width);
-  assert(output_h == output_height);
   auto num_inputs = vproc->getNumInputs();
 
   UniformsView uniforms{
       .data =
           {
-              .iResolution_w = static_cast<float>(output_width),
-              .iResolution_h = static_cast<float>(output_height),
+              .iResolution_w = static_cast<float>(output_image.width),
+              .iResolution_h = static_cast<float>(output_image.height),
               .iTime = static_cast<float>(project_time),
               .iSampleRate = 0,
               .iFrameRate = static_cast<float>(framerate),
@@ -927,7 +985,7 @@ IVideoFrame *Ogler::video_process_frame(std::span<const double> parms,
   command_buffer.pushConstants<float>(*compute->pipeline_layout,
                                       vk::ShaderStageFlagBits::eCompute, 0,
                                       uniforms.values);
-  command_buffer.dispatch(output_width, output_height, 1);
+  command_buffer.dispatch(output_image.width, output_image.height, 1);
   {
     vk::ImageMemoryBarrier img_mem_barrier{
         .srcAccessMask = vk::AccessFlagBits::eMemoryWrite,

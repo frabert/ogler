@@ -132,8 +132,17 @@ class Ogler final {
   const clap::host &host;
   std::unique_ptr<IREAPERVideoProcessor> vproc;
 
-  int output_width = 1024;
-  int output_height = 768;
+  constexpr static int fallback_output_width = 1024;
+  constexpr static int fallback_output_height = 1024;
+
+  int reaper_vidw_idx{-1};
+  int reaper_vidh_idx{-1};
+
+  std::optional<int> shader_output_width;
+  std::optional<int> shader_output_height;
+
+  int *project_output_width{};
+  int *project_output_height{};
 
   static SharedVulkan &get_shared_vulkan();
 
@@ -200,17 +209,21 @@ class Ogler final {
     command_buffer.reset();
   }
 
-  template <typename T> T *get_reaper_function(std::string_view name) {
+  template <typename T> T get_reaper_function(std::string_view name) {
     auto reaper_plugin =
         host.get_extension<reaper_plugin_info_t>("cockos.reaper_extension");
-    return reinterpret_cast<T *>(reaper_plugin->GetFunc(name.data()));
+    return reinterpret_cast<T>(reaper_plugin->GetFunc(name.data()));
   }
 
   IVideoFrame *video_process_frame(std::span<const double> parms,
                                    double project_time, double framerate,
                                    FrameFormat force_format) noexcept;
+  void update_frame_buffers() noexcept;
 
   void handle_events(const clap_input_events_t &events);
+
+  int get_output_width();
+  int get_output_height();
 
 public:
   static constexpr const char *id = "dev.bertolaccini.ogler";
