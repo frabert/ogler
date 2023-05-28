@@ -32,6 +32,11 @@
 
 namespace ogler {
 
+struct GlslangInitializer {
+  GlslangInitializer() { glslang::InitializeProcess(); }
+  ~GlslangInitializer() { glslang::FinalizeProcess(); }
+};
+
 static const TBuiltInResource DefaultTBuiltInResource = {
     .maxLights = 32,
     .maxClipPlanes = 6,
@@ -280,6 +285,8 @@ public:
 std::variant<ShaderData, std::string>
 compile_shader(const std::vector<std::pair<std::string, std::string>> &source,
                int params_binding) {
+  static GlslangInitializer initializer;
+
   glslang::TShader shader(EShLangCompute);
   std::vector<const char *> sources;
   std::vector<const char *> names;
