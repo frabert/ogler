@@ -24,38 +24,17 @@
     resulting work.
 */
 
-#pragma once
-
-#include <string>
-#include <utility>
-#include <variant>
-#include <vector>
-
-#include <nlohmann/json.hpp>
+#include <aux-slice.h>
+#include <sciter-x.h>
 
 namespace ogler {
 
-struct ParameterInfo {
-  std::string name;
-  std::string display_name;
-  float default_value;
-  float minimum_val;
-  float maximum_val;
-  float middle_value;
-  float step_size;
+#include "ogler_resources_data.inc"
+
+struct Resources {
+  Resources() { sciter::archive::instance().open(aux::elements_of(resources)); }
 };
 
-void to_json(nlohmann::json &j, const ParameterInfo &p);
-void from_json(const nlohmann::json &j, ParameterInfo &p);
+static Resources res;
 
-struct ShaderData {
-  std::vector<unsigned> spirv_code;
-  std::vector<ParameterInfo> parameters;
-  std::optional<int> output_width;
-  std::optional<int> output_height;
-};
-
-std::variant<ShaderData, std::string>
-compile_shader(const std::vector<std::pair<std::string, std::string>> &source,
-               int params_binding);
 } // namespace ogler

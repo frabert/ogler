@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <link href="style.css" rel="stylesheet" />
+  <script>
+    document.ready = () => {
+      const STYLE_DEFAULT = 32;
+      const STYLE_LINENUMBER = 33;
+      const STYLE_BRACELIGHT = 34;
+      const STYLE_BRACEBAD = 35;
+      const STYLE_CONTROLCHAR = 36;
+      const STYLE_INDENTGUIDE = 37;
+      const STYLE_CALLTIP = 38;
+      const STYLE_FOLDDISPLAYTEXT = 39;
+
+      const STY_Keyword = 40;
+      const STY_Type = 41;
+      const STY_Integer = 42;
+      const STY_Float = 43;
+      const STY_Bool = 44;
+      const STY_Ident = 45;
+      const STY_Operator = 46;
+      const STY_String = 47;
+      const STY_BuiltinFunc = 48;
+      const STY_Punctuation = 49;
+      const STY_Comment = 50;
+      const STY_ErrorAnnotation = 51;
+
+      const AnnotationHidden = 0;
+      const AnnotationStandard = 1;
+      const AnnotationBoxed = 2;
+      const AnnotationIndented = 3;
+
+      const el = document.getElementById('editor');
+      const sci = el.ScintillaEditor;
+      sci.use_tabs = false;
+      sci.tab_width = 4;
+      sci.style_set_font(STYLE_DEFAULT, 'Consolas');
+      const width = sci.text_width(STYLE_LINENUMBER, '_999');
+      sci.set_margin_width(0, width);
+
+      sci.style_set_fore(STY_Keyword, sci.rgb(0x00, 0x00, 0xFF));
+      sci.style_set_fore(STY_Type, sci.rgb(0x00, 0x80, 0x80));
+      sci.style_set_fore(STY_Integer, sci.rgb(0x4B, 0x00, 0x82));
+      sci.style_set_fore(STY_Float, sci.rgb(0x4B, 0x00, 0x82));
+      sci.style_set_fore(STY_Bool, sci.rgb(0x00, 0x0, 0xFF));
+      sci.style_set_fore(STY_String, sci.rgb(0x80, 0x00, 0x00));
+      sci.style_set_fore(STY_BuiltinFunc, sci.rgb(0x8b, 0x00, 0x8b));
+      sci.style_set_fore(STY_Punctuation, 0);
+      sci.style_set_fore(STY_Comment, sci.rgb(0x00, 0x64, 0x00));
+      sci.style_set_back(STY_ErrorAnnotation, sci.rgba(0xFF, 0xCC, 0xCC, 0xFF));
+
+      sci.zoom = globalThis.ogler.zoom;
+
+      sci.text = globalThis.ogler.shader_source;
+      el.on('zoom', () => {
+        globalThis.ogler.zoom = sci.zoom;
+        const width = sci.text_width(STYLE_LINENUMBER, '_999');
+        sci.set_margin_width(0, width);
+      });
+
+      const rec = document.getElementById('recompile');
+      const error_re = /^ERROR: <source>:(\d+): (.+)/gm;
+      rec.on('click', () => {
+        globalThis.ogler.shader_source = el.ScintillaEditor.text;
+        const err = globalThis.ogler.recompile();
+        sci.annotation_clear_all();
+        if (err) {
+          for (const match of err.matchAll(error_re)) {
+            const line = parseInt(match[1]);
+            const msg = match[2];
+            sci.annotation_set_text(line - 1, msg);
+            sci.annotation_set_style(line - 1, STY_ErrorAnnotation);
+            sci.annotation_visible = AnnotationIndented;
+          }
+          Window.this.modal(
+            <error caption="Shader compilation error">
+              <pre>{err}</pre>
+            </error>)
+        }
+      });
+
+      Window.this.on('closerequest', () => {
+        globalThis.ogler.shader_source = sci.text;
+      });
+
+      Window.this.on('shader_reload', () => {
+        sci.text = globalThis.ogler.shader_source;
+      });
+
+      Window.this.on('size', () => {
+        [globalThis.ogler.editor_width, globalThis.ogler.editor_height] = Window.this.box('dimension')
+      })
+
+      const help = document.getElementById('help')
+      help.on('click', () => {
+        Window.this.modal(
+          <info caption="About">
+            <h1>ogler - Use GLSL shaders in REAPER</h1>
+            <h2>Copyright (C) 2023 Francesco Bertolaccini</h2>
+            <p>
+              This program is free software: you can redistribute it and/or modify
+              it under the terms of the GNU General Public License as published by
+              the Free Software Foundation, either version 3 of the License, or
+              (at your option) any later version.
+            </p>
+            <p>
+              This program is distributed in the hope that it will be useful,
+              but WITHOUT ANY WARRANTY; without even the implied warranty of
+              MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+              GNU General Public License for more details.
+            </p>
+            <p>
+              You should have received a copy of the GNU General Public License
+              along with this program.  If not, see
+              &lt;<a href="https://www.gnu.org/licenses/">https://www.gnu.org/licenses/</a>&gt;.
+            </p>
+            <p>
+              Additional permission under GNU GPL version 3 section 7
+            </p>
+            <p>
+              If you modify this Program, or any covered work, by linking or
+              combining it with Sciter (or a modified version of that library),
+              containing parts covered by the terms of Sciter's EULA, the licensors
+              of this Program grant you additional permission to convey the
+              resulting work.
+            </p>
+            <p>
+              This Application uses Sciter Engine (<a href="http://sciter.com/">http://sciter.com/</a>),
+              copyright Terra Informatica Software, Inc.
+            </p>
+
+            <h3>CLAP SDK</h3>
+            <p>MIT License</p>
+            <p>Copyright (c) 2021 Alexandre BIQUE</p>
+            <p>
+              Permission is hereby granted, free of charge, to any person obtaining a copy
+              of this software and associated documentation files (the "Software"), to deal
+              in the Software without restriction, including without limitation the rights
+              to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+              copies of the Software, and to permit persons to whom the Software is
+              furnished to do so, subject to the following conditions:
+            </p>
+            <p>
+              The above copyright notice and this permission notice shall be included in all
+              copies or substantial portions of the Software.
+            </p>
+            <p>
+              THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+              IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+              FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+              AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+              LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+              OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+              SOFTWARE.
+            </p>
+
+            <h3>Glslang</h3>
+            <p>
+              Glslang uses a bunch of licenses, see
+              <a href="https://github.com/KhronosGroup/glslang/blob/main/LICENSE.txt">LICENSE.txt</a>
+            </p>
+
+            <h3>Scintilla</h3>
+            <p>License for Lexilla, Scintilla, and SciTE</p>
+            <p>
+              Copyright 1998-2021 by Neil Hodgson
+              &lt;<a href="mailto:neilh@scintilla.org">neilh@scintilla.org</a>&gt;
+            </p>
+            <p>All Rights Reserved</p>
+            <p>
+              Permission to use, copy, modify, and distribute this software and its
+              documentation for any purpose and without fee is hereby granted,
+              provided that the above copyright notice appear in all copies and that
+              both that copyright notice and this permission notice appear in
+              supporting documentation.
+            </p>
+            <p>
+              NEIL HODGSON DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+              SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+              AND FITNESS, IN NO EVENT SHALL NEIL HODGSON BE LIABLE FOR ANY
+              SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+              WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+              WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+              TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
+              OR PERFORMANCE OF THIS SOFTWARE.
+            </p>
+          </info>
+        )
+      });
+    };
+  </script>
+</head>
+
+<body>
+  <toolbar role="toolbar">
+    <button id="recompile" accesskey="!F5" title="Recompile" aria-label="Recompile"></button>
+    <button id="help" title="Help" aria-label="Help"></button>
+  </toolbar>
+  <scintilla id="editor"></scintilla>
+</body>
+
+</html>

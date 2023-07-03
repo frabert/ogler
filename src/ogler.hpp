@@ -14,6 +14,14 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+    Additional permission under GNU GPL version 3 section 7
+
+    If you modify this Program, or any covered work, by linking or
+    combining it with Sciter (or a modified version of that library),
+    containing parts covered by the terms of Sciter's EULA, the licensors
+    of this Program grant you additional permission to convey the
+    resulting work.
 */
 
 #pragma once
@@ -40,6 +48,8 @@
 
 #include "compile_shader.hpp"
 #include "vulkan_context.hpp"
+
+#include "sciter_window.hpp"
 
 #define OGLER_STRINGIZE_(x) #x
 #define OGLER_STRINGIZE(x) OGLER_STRINGIZE_(x)
@@ -170,13 +180,11 @@ class Ogler final {
 
   IVideoFrame *output_frame{};
 
-  struct Editor;
+  class Editor;
+
   std::unique_ptr<Editor> editor;
 
-  PatchData data;
   std::string param_text;
-
-  std::optional<std::string> recompile_shaders();
 
   std::mutex video_mutex;
   std::recursive_mutex params_mutex;
@@ -239,8 +247,12 @@ public:
   static constexpr const char *description = "Use GLSL video shaders in REAPER";
   static constexpr const char *features[] = {"reaper:video-processor", {}};
 
+  PatchData data;
+
   Ogler(const clap::host &host);
   ~Ogler();
+
+  std::optional<std::string> recompile_shaders();
 
   bool init();
   bool activate(double sample_rate, uint32_t min_frames_count,

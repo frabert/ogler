@@ -14,34 +14,35 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+    Additional permission under GNU GPL version 3 section 7
+
+    If you modify this Program, or any covered work, by linking or
+    combining it with Sciter (or a modified version of that library),
+    containing parts covered by the terms of Sciter's EULA, the licensors
+    of this Program grant you additional permission to convey the
+    resulting work.
 */
 
 #pragma once
 
 #include "ogler.hpp"
 
-struct SCNotification;
-namespace Scintilla {
-class ScintillaCall;
-}
+#include "sciter_window.hpp"
 
 namespace ogler {
-struct Ogler::Editor {
-  HWND wnd{}, scintilla{}, recompile_btn{};
-  std::unique_ptr<Scintilla::ScintillaCall> sc_call;
+class Ogler::Editor final : public SciterWindow<Ogler::Editor> {
+  friend Ogler;
 
-  Ogler &plugin;
-
-  Editor(Ogler &plugin);
-  ~Editor();
-
-  void reload_source();
-  void set_parent(void *parent);
+public:
+  static constexpr const char *class_name = "ogler";
+  Editor(HWND parent, Ogler &plugin);
 
 private:
-  void create();
-  void resize(int w, int h);
-  void recompile_clicked();
-  void scintilla_noti(unsigned code, const SCNotification &);
+  Ogler &plugin;
+
+protected:
+  void reload_source();
+  void resize(int w, int h) final;
 };
 } // namespace ogler

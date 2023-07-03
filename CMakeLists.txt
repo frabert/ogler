@@ -8,6 +8,8 @@ project(ogler
     LANGUAGES C CXX
     VERSION ${OGLER_VER_MAJOR}.${OGLER_VER_MINOR}.${OGLER_VER_REV})
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
 include(FetchContent)
 
 FetchContent_Declare(
@@ -102,6 +104,12 @@ target_include_directories(reaper_sdk
 
 find_package(Vulkan REQUIRED)
 find_package(nlohmann_json 3 REQUIRED)
+find_package(Sciter REQUIRED)
+
+add_custom_target(
+    generate_resources ALL
+    COMMAND "${Sciter_Packfolder}" "${CMAKE_CURRENT_SOURCE_DIR}/resources" "${CMAKE_CURRENT_BINARY_DIR}/ogler_resources_data.inc"
+)
 
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp"
@@ -114,14 +122,16 @@ add_custom_command(
 )
 
 add_library(ogler MODULE
-    "src/compile_shader.cpp"
-    "src/main.cpp"
-    "src/ogler.cpp"
-    "src/ogler_debug.cpp"
-    "src/ogler_editor.cpp"
-    "src/ogler_lexer.cpp"
-    "src/ogler_params.cpp"
-    "src/vulkan_context.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/compile_shader.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_debug.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_editor.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_lexer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_params.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_resources.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sciter_scintilla.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan_context.cpp"
 
     "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp")
 
@@ -146,8 +156,10 @@ target_link_libraries(ogler
     nlohmann_json::nlohmann_json
     glslang
     SPIRV
-    clap)
-target_include_directories(ogler PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    clap
+    Sciter::Sciter)
+target_include_directories(ogler PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}")
+add_dependencies(ogler generate_resources)
 
 install(
     TARGETS ogler
