@@ -958,11 +958,11 @@ IVideoFrame *Ogler::video_process_frame(std::span<const double> parms,
     std::copy(input_resolution.begin(), input_resolution.end(),
               input_resolution_buffer.map.begin());
 
+    vk::DescriptorBufferInfo uniforms_info{
+        .range = sizeof(float) * data.parameters.size(),
+    };
     if (params_buffer) {
-      vk::DescriptorBufferInfo uniforms_info{
-          .buffer = *params_buffer->buffer,
-          .range = sizeof(float) * data.parameters.size(),
-      };
+      uniforms_info.buffer = *params_buffer->buffer;
       // keeping in mind parms[0] is iWet
       for (size_t i = 0; i < parms.size() - 1; ++i) {
         params_buffer->map[i] = parms[i + 1];
