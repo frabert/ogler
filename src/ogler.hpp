@@ -51,6 +51,8 @@
 
 #include "sciter_window.hpp"
 
+#include "IReaper.h"
+
 #define OGLER_STRINGIZE_(x) #x
 #define OGLER_STRINGIZE(x) OGLER_STRINGIZE_(x)
 
@@ -73,21 +75,6 @@ constexpr const char *string =
     OGLER_STRINGIZE(OGLER_VER_MAJOR) "." OGLER_STRINGIZE(
         OGLER_VER_MINOR) "." OGLER_STRINGIZE(OGLER_VER_REV);
 } // namespace version
-
-using eel_gmem_attach_f = double ***(const char *name, bool is_alloc);
-using mutex_stub_f = void();
-
-class EELMutex {
-  mutex_stub_f *enter;
-  mutex_stub_f *leave;
-
-public:
-  EELMutex(mutex_stub_f *enter, mutex_stub_f *leave)
-      : enter(enter), leave(leave) {}
-
-  void lock() { enter(); }
-  void unlock() { leave(); }
-};
 
 struct Parameter {
   ParameterInfo info;
@@ -140,19 +127,15 @@ struct InputImage {
 
 class Ogler final {
   const clap::host &host;
+  std::unique_ptr<IReaper> reaper;
+
   std::unique_ptr<IREAPERVideoProcessor> vproc;
 
   constexpr static int fallback_output_width = 1024;
   constexpr static int fallback_output_height = 1024;
 
-  int reaper_vidw_idx{-1};
-  int reaper_vidh_idx{-1};
-
   std::optional<int> shader_output_width;
   std::optional<int> shader_output_height;
-
-  int *project_output_width{};
-  int *project_output_height{};
 
   static SharedVulkan &get_shared_vulkan();
 
@@ -215,13 +198,6 @@ class Ogler final {
     assert(res == vk::Result::eSuccess);
     shared.vulkan.device.resetFences({*fence});
     command_buffer.reset();
-  }
-
-  template <typename T>
-  void get_reaper_function(std::string_view name, T &out) {
-    auto reaper_plugin =
-        host.get_extension<reaper_plugin_info_t>("cockos.reaper_extension");
-    out = reinterpret_cast<T>(reaper_plugin->GetFunc(name.data()));
   }
 
   IVideoFrame *video_process_frame(std::span<const double> parms,

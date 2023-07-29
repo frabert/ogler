@@ -300,25 +300,26 @@ static void transition_image_layout_download(vk::raii::CommandBuffer &cmd,
 int Ogler::get_output_width() {
   if (shader_output_width.has_value()) {
     return *shader_output_width;
-  } else if (project_output_width) {
-    return *project_output_width;
   } else {
-    return fallback_output_width;
+    auto [w, h] = reaper->get_current_project_size(fallback_output_width,
+                                                   fallback_output_height);
+    return w;
   }
 }
 
 int Ogler::get_output_height() {
   if (shader_output_height.has_value()) {
     return *shader_output_height;
-  } else if (project_output_height) {
-    return *project_output_height;
   } else {
-    return fallback_output_height;
+    auto [w, h] = reaper->get_current_project_size(fallback_output_width,
+                                                   fallback_output_height);
+    return h;
   }
 }
 
 Ogler::Ogler(const clap::host &host)
-    : host(host), shared(get_shared_vulkan()),
+    : host(host), reaper(IReaper::get_reaper(host)),
+      shared(get_shared_vulkan()),
       command_buffer(shared.vulkan.create_command_buffer()),
       queue(shared.vulkan.get_queue(0)), fence(shared.vulkan.create_fence()),
       sampler(shared.vulkan.create_sampler()),
@@ -357,49 +358,16 @@ Ogler::~Ogler() {
 }
 
 bool Ogler::init() {
-  if (std::string_view{host.vendor} != "Cockos" ||
-      std::string_view{host.name} != "REAPER") {
-    host.log(CLAP_LOG_FATAL, "ogler only works on REAPER\n");
-    return false;
-  }
-
-  mutex_stub_f *enter, *leave;
-  get_reaper_function("NSEEL_HOSTSTUB_EnterMutex", enter);
-  get_reaper_function("NSEEL_HOSTSTUB_LEAVEMutex", leave);
-  eel_mutex = EELMutex{enter, leave};
+  eel_mutex = reaper->get_eel_mutex();
 
   one_shot_execute([&]() {
     transition_image_layout_download(command_buffer, output_image);
     transition_image_layout_download(command_buffer, previous_image);
   });
 
-  eel_gmem_attach_f *eel_gmem_attach;
-  get_reaper_function<eel_gmem_attach_f *>("eel_gmem_attach", eel_gmem_attach);
-  gmem = eel_gmem_attach("ogler", true);
-  static IREAPERVideoProcessor *(*video_CreateVideoProcessor)(void *fxctx,
-                                                              int version);
-  static void *(*clap_get_reaper_context)(const clap_host_t *host, int request);
+  gmem = reaper->eel_gmem_attach();
 
-  if (!video_CreateVideoProcessor) {
-    get_reaper_function("video_CreateVideoProcessor",
-                        video_CreateVideoProcessor);
-    get_reaper_function("ShowConsoleMsg", ShowConsoleMsg);
-    get_reaper_function("EnumProjects", EnumProjects);
-    get_reaper_function("clap_get_reaper_context", clap_get_reaper_context);
-  }
-
-  if (!clap_get_reaper_context) {
-    host.log(CLAP_LOG_FATAL,
-             "The REAPER version you're using does not support the "
-             "clap_get_reaper_context API, first introduced in 6.80\nMaybe "
-             "your version is too old?\n");
-    return false;
-  }
-
-  auto reaper_ctx = clap_get_reaper_context(&host, 4);
-
-  vproc = std::unique_ptr<IREAPERVideoProcessor>(video_CreateVideoProcessor(
-      reaper_ctx, IREAPERVideoProcessor::REAPER_VIDEO_PROCESSOR_VERSION));
+  vproc = reaper->create_video_processor();
   vproc->userdata = this;
   vproc->process_frame =
       [](IREAPERVideoProcessor *vproc, const double *parmlist, int nparms,
@@ -420,16 +388,6 @@ bool Ogler::init() {
       return false;
     }
   };
-
-  get_reaper_function("projectconfig_var_addr", projectconfig_var_addr);
-  get_reaper_function("projectconfig_var_getoffs", projectconfig_var_getoffs);
-
-  int sz{};
-  reaper_vidw_idx = projectconfig_var_getoffs("projvidw", &sz);
-  assert(sz == 4);
-
-  reaper_vidh_idx = projectconfig_var_getoffs("projvidh", &sz);
-  assert(sz == 4);
 
   return true;
 }
@@ -691,20 +649,6 @@ InputImage Ogler::create_input_image(int w, int h) {
 void Ogler::update_frame_buffers() noexcept {
   auto old_width = output_image.width;
   auto old_height = output_image.height;
-
-  project_output_width = nullptr;
-  project_output_height = nullptr;
-  do {
-    auto cur_proj = EnumProjects(-1, nullptr, 0);
-    if (!cur_proj) {
-      break;
-    }
-
-    project_output_width =
-        static_cast<int *>(projectconfig_var_addr(cur_proj, reaper_vidw_idx));
-    project_output_height =
-        static_cast<int *>(projectconfig_var_addr(cur_proj, reaper_vidh_idx));
-  } while (false);
 
   auto new_width = get_output_width();
   auto new_height = get_output_height();

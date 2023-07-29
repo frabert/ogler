@@ -123,6 +123,7 @@ add_custom_command(
 
 add_library(ogler MODULE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/compile_shader.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/IReaper.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_debug.cpp"
