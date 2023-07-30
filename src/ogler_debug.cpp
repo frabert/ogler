@@ -33,11 +33,4 @@
 
 namespace ogler {
 void DebugStream::print(const std::string &s) { OutputDebugString(s.c_str()); }
-
-void ReaperStream::print(const std::string &s) {
-  if (!ShowConsoleMsg) {
-    return;
-  }
-  ShowConsoleMsg(s.c_str());
-}
 } // namespace ogler

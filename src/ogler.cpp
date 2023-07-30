@@ -28,6 +28,7 @@
 #include "compile_shader.hpp"
 #include "ogler_debug.hpp"
 #include "ogler_editor.hpp"
+#include "sciter_scintilla.hpp"
 
 #include <clap/events.h>
 #include <clap/ext/audio-ports.h>
@@ -316,6 +317,8 @@ int Ogler::get_output_height() {
     return h;
   }
 }
+
+static ScintillaEditorFactory scintilla_factory(get_hinstance());
 
 Ogler::Ogler(const clap::host &host)
     : host(host), reaper(IReaper::get_reaper(host)),
@@ -1033,4 +1036,89 @@ std::optional<clap_audio_port_info_t> Ogler::audio_ports_get(uint32_t index,
       .in_place_pair = 0,
   }};
 }
+
+bool Ogler::gui_is_api_supported(std::string_view api, bool is_floating) {
+  return api == CLAP_WINDOW_API_WIN32;
+}
+
+std::optional<std::pair<const char *, bool>> Ogler::gui_get_preferred_api() {
+  return {{CLAP_WINDOW_API_WIN32, false}};
+}
+
+bool Ogler::gui_create(std::string_view api, bool is_floating) {
+  if (api != CLAP_WINDOW_API_WIN32) {
+    return false;
+  }
+
+  return true;
+}
+
+void Ogler::gui_destroy() { editor = nullptr; }
+
+bool Ogler::gui_set_scale(double scale) { return false; }
+
+std::optional<std::pair<uint32_t, uint32_t>> Ogler::gui_get_size() {
+  return {{data.editor_w, data.editor_h}};
+}
+
+bool Ogler::gui_can_resize() { return true; }
+
+std::optional<clap_gui_resize_hints_t> Ogler::gui_get_resize_hints() {
+  return {{
+      .can_resize_horizontally = true,
+      .can_resize_vertically = true,
+      .preserve_aspect_ratio = false,
+  }};
+}
+
+bool Ogler::gui_adjust_size(uint32_t &width, uint32_t &height) { return true; }
+
+bool Ogler::gui_set_size(uint32_t width, uint32_t height) {
+  if (!editor) {
+    return true;
+  }
+  SetWindowPos(editor->hwnd, nullptr, 0, 0, width, height, SWP_NOMOVE);
+  data.editor_w = width;
+  data.editor_h = height;
+  return true;
+}
+
+class OglerEditorInterface final : public EditorInterface {
+  Ogler &plugin;
+
+public:
+  OglerEditorInterface(Ogler &plugin) : plugin(plugin) {}
+
+  std::optional<std::string> recompile_shaders() {
+    return plugin.recompile_shaders();
+  }
+
+  void set_shader_source(const std::string &source) {
+    plugin.data.video_shader = source;
+  }
+  const std::string &get_shader_source() { return plugin.data.video_shader; }
+  int get_zoom() { return plugin.data.editor_zoom; }
+  void set_zoom(int zoom) { plugin.data.editor_zoom = zoom; }
+  int get_width() { return plugin.data.editor_w; }
+  int get_height() { return plugin.data.editor_h; }
+  void set_width(int w) { plugin.data.editor_w = w; }
+  void set_height(int h) { plugin.data.editor_h = h; }
+};
+
+bool Ogler::gui_set_parent(const clap_window_t &window) {
+  editor =
+      std::make_unique<Editor>(static_cast<HWND>(window.win32), get_hinstance(),
+                               std::make_unique<OglerEditorInterface>(*this));
+  return true;
+}
+
+bool Ogler::gui_set_transient(const clap_window_t &window) { return false; }
+
+void Ogler::gui_suggest_title(std::string_view title) {
+  SetWindowText(editor->hwnd, title.data());
+}
+
+bool Ogler::gui_show() { return true; }
+
+bool Ogler::gui_hide() { return true; }
 } // namespace ogler

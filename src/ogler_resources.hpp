@@ -24,5 +24,8 @@
     resulting work.
 */
 
-#define REAPERAPI_IMPLEMENT
-#include <reaper_plugin_functions.h>
+#pragma once
+
+namespace ogler {
+void load_ogler_resources();
+}

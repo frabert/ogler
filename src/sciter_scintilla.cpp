@@ -24,10 +24,10 @@
     resulting work.
 */
 
-#include <sciter-om-def.h>
-#include <sciter-x.h>
+#include "sciter_scintilla.hpp"
 
-#include "ogler.hpp"
+#include <sciter-x-behavior.h>
+#include <string_view>
 
 #include <Scintilla.h>
 #include <ScintillaTypes.h>
@@ -44,10 +44,11 @@ namespace ogler {
 class ScintillaEditor final : public sciter::event_handler {
 public:
   HWND wnd{}, scintilla{};
+  HINSTANCE hinstance{};
   HELEMENT self{}; // note: weak ref (not addrefed)
   std::unique_ptr<Scintilla::ScintillaCall> sc_call;
 
-  ScintillaEditor() {}
+  ScintillaEditor(HINSTANCE hinstance) : hinstance(hinstance) {}
 
   virtual void attached(HELEMENT he) override {
     static ATOM cls_atom = {};
@@ -81,7 +82,7 @@ public:
                   CreateWindow(TEXT("Scintilla"), TEXT(""),
                                WS_CHILD | WS_VSCROLL | WS_HSCROLL |
                                    WS_CLIPCHILDREN | WS_VISIBLE | WS_EX_LAYERED,
-                               0, 0, 0, 0, hWnd, 0, get_hinstance(), 0);
+                               0, 0, 0, 0, hWnd, 0, window->hinstance, 0);
             case WM_SIZE:
               SetWindowPos(window->scintilla, nullptr, 0, 0, LOWORD(lParam),
                            HIWORD(lParam), 0);
@@ -272,7 +273,7 @@ public:
             }
             return 0;
           },
-          .hInstance = get_hinstance(),
+          .hInstance = hinstance,
           .lpszClassName = "sciter_scintilla",
       };
       cls_atom = RegisterClassEx(&cls);
@@ -282,7 +283,7 @@ public:
     sciter::dom::element el = he;
     CreateWindow(reinterpret_cast<LPCSTR>(cls_atom), TEXT(""),
                  WS_CHILD | WS_CLIPCHILDREN | WS_VISIBLE, 0, 0, 0, 0,
-                 el.get_element_hwnd(true), 0, get_hinstance(), this);
+                 el.get_element_hwnd(true), 0, hinstance, this);
     el.attach_hwnd(wnd);
 
     auto fn_ = reinterpret_cast<Scintilla::FunctionDirect>(
@@ -395,14 +396,10 @@ public:
   SOM_PASSPORT_END
 };
 
-struct ScintillaEditorFactory : public sciter::behavior_factory {
-  ScintillaEditorFactory() : behavior_factory("scintilla") {}
+ScintillaEditorFactory::ScintillaEditorFactory(HINSTANCE hinstance)
+    : behavior_factory("scintilla"), hinstance(hinstance) {}
 
-  // the only behavior_factory method:
-  virtual sciter::event_handler *create(HELEMENT he) {
-    return new ScintillaEditor();
-  }
-};
-
-static ScintillaEditorFactory editor_factory;
+sciter::event_handler *ScintillaEditorFactory::create(HELEMENT he) {
+  return new ScintillaEditor(hinstance);
+}
 } // namespace ogler

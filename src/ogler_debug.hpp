@@ -28,11 +28,7 @@
 
 #include <sstream>
 
-#ifdef NDEBUG
-#define DBG ReaperStream()
-#else
 #define DBG DebugStream()
-#endif
 
 namespace ogler {
 template <typename Derived> class DebugStreamBase {
@@ -64,15 +60,5 @@ protected:
 public:
   DebugStream(std::stringstream ss = std::stringstream())
       : DebugStreamBase<DebugStream>(std::move(ss)) {}
-};
-
-class ReaperStream : public DebugStreamBase<ReaperStream> {
-protected:
-  friend class DebugStreamBase<ReaperStream>;
-  void print(const std::string &s);
-
-public:
-  ReaperStream(std::stringstream ss = std::stringstream())
-      : DebugStreamBase<ReaperStream>(std::move(ss)) {}
 };
 } // namespace ogler

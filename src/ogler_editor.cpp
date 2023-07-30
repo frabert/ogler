@@ -24,8 +24,6 @@
     resulting work.
 */
 
-#include "ogler.hpp"
-
 #include "ogler_editor.hpp"
 
 #include <memory>
@@ -43,10 +41,10 @@
 
 namespace ogler {
 class EditorScripting : public sciter::om::asset<EditorScripting> {
-  Ogler &plugin;
+  EditorInterface &plugin;
 
 public:
-  EditorScripting(Ogler &plugin) : plugin(plugin) {}
+  EditorScripting(EditorInterface &plugin) : plugin(plugin) {}
 
   sciter::value recompile() {
     if (auto err = plugin.recompile_shaders()) {
@@ -55,27 +53,27 @@ public:
     return {};
   }
 
-  const std::string &get_shader_source() { return plugin.data.video_shader; }
+  const std::string &get_shader_source() { return plugin.get_shader_source(); }
   bool set_shader_source(const std::string &source) {
-    plugin.data.video_shader = source;
+    plugin.set_shader_source(source);
     return true;
   }
 
-  int get_zoom() { return plugin.data.editor_zoom; }
+  int get_zoom() { return plugin.get_zoom(); }
   bool set_zoom(int value) {
-    plugin.data.editor_zoom = value;
+    plugin.set_zoom(value);
     return true;
   }
 
-  int get_editor_width() { return plugin.data.editor_w; }
+  int get_editor_width() { return plugin.get_width(); }
   bool set_editor_width(int width) {
-    plugin.data.editor_w = width;
+    plugin.set_width(width);
     return true;
   }
 
-  int get_editor_height() { return plugin.data.editor_h; }
+  int get_editor_height() { return plugin.get_height(); }
   bool set_editor_height(int height) {
-    plugin.data.editor_h = height;
+    plugin.set_height(height);
     return true;
   }
 
@@ -90,20 +88,22 @@ public:
   SOM_PASSPORT_END
 };
 
-Ogler::Editor::Editor(HWND parent, Ogler &plugin)
-    : SciterWindow(parent, plugin.data.editor_w, plugin.data.editor_h, "ogler"),
-      plugin(plugin) {
-  auto value = sciter::value::wrap_asset(new EditorScripting(plugin));
+Editor::Editor(HWND parent, HINSTANCE hinstance,
+               std::unique_ptr<EditorInterface> plugin)
+    : SciterWindow(parent, hinstance, plugin->get_width(), plugin->get_height(),
+                   "ogler"),
+      plugin(std::move(plugin)) {
+  auto value = sciter::value::wrap_asset(new EditorScripting(*this->plugin));
   SciterSetVariable(hwnd, "ogler", &value);
   SciterLoadFile(hwnd, L"this://app/index.html");
 }
 
-void Ogler::Editor::resize(int w, int h) {
-  plugin.data.editor_w = w;
-  plugin.data.editor_h = h;
+void Editor::resize(int w, int h) {
+  plugin->set_width(w);
+  plugin->set_height(h);
 }
 
-void Ogler::Editor::reload_source() {
+void Editor::reload_source() {
   BEHAVIOR_EVENT_PARAMS evt{
       .cmd = CUSTOM,
       .name = L"shader_reload",
@@ -111,66 +111,5 @@ void Ogler::Editor::reload_source() {
   BOOL handled;
   SciterFireEvent(&evt, false, &handled);
 }
-
-bool Ogler::gui_is_api_supported(std::string_view api, bool is_floating) {
-  return api == CLAP_WINDOW_API_WIN32;
-}
-
-std::optional<std::pair<const char *, bool>> Ogler::gui_get_preferred_api() {
-  return {{CLAP_WINDOW_API_WIN32, false}};
-}
-
-bool Ogler::gui_create(std::string_view api, bool is_floating) {
-  if (api != CLAP_WINDOW_API_WIN32) {
-    return false;
-  }
-
-  return true;
-}
-
-void Ogler::gui_destroy() { editor = nullptr; }
-
-bool Ogler::gui_set_scale(double scale) { return false; }
-
-std::optional<std::pair<uint32_t, uint32_t>> Ogler::gui_get_size() {
-  return {{data.editor_w, data.editor_h}};
-}
-
-bool Ogler::gui_can_resize() { return true; }
-
-std::optional<clap_gui_resize_hints_t> Ogler::gui_get_resize_hints() {
-  return {{
-      .can_resize_horizontally = true,
-      .can_resize_vertically = true,
-      .preserve_aspect_ratio = false,
-  }};
-}
-
-bool Ogler::gui_adjust_size(uint32_t &width, uint32_t &height) { return true; }
-
-bool Ogler::gui_set_size(uint32_t width, uint32_t height) {
-  if (!editor) {
-    return true;
-  }
-  SetWindowPos(editor->hwnd, nullptr, 0, 0, width, height, SWP_NOMOVE);
-  data.editor_w = width;
-  data.editor_h = height;
-  return true;
-}
-
-bool Ogler::gui_set_parent(const clap_window_t &window) {
-  editor = std::make_unique<Editor>(static_cast<HWND>(window.win32), *this);
-  return true;
-}
-
-bool Ogler::gui_set_transient(const clap_window_t &window) { return false; }
-
-void Ogler::gui_suggest_title(std::string_view title) {
-  SetWindowText(editor->hwnd, title.data());
-}
-
-bool Ogler::gui_show() { return true; }
-
-bool Ogler::gui_hide() { return true; }
 
 } // namespace ogler

@@ -24,6 +24,8 @@
     resulting work.
 */
 
+#include "ogler_resources.hpp"
+
 #include <aux-slice.h>
 #include <sciter-x.h>
 
@@ -31,10 +33,8 @@ namespace ogler {
 
 #include "ogler_resources_data.inc"
 
-struct Resources {
-  Resources() { sciter::archive::instance().open(aux::elements_of(resources)); }
-};
-
-static Resources res;
+void load_ogler_resources() {
+  sciter::archive::instance().open(aux::elements_of(resources));
+}
 
 } // namespace ogler

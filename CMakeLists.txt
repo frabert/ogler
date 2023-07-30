@@ -96,9 +96,9 @@ target_include_directories(scintilla
 target_link_libraries(scintilla PUBLIC gdi32 user32 imm32 ole32 uuid oleaut32 msimg32)
 set_target_properties(scintilla PROPERTIES CXX_STANDARD 17)
 
-add_library(reaper_sdk STATIC "${CMAKE_CURRENT_SOURCE_DIR}/src/reaper_sdk.cpp")
+add_library(reaper_sdk INTERFACE)
 target_include_directories(reaper_sdk
-    PUBLIC
+    INTERFACE
     "${reaper-sdk_SOURCE_DIR}/sdk"
     "${wdl_SOURCE_DIR}")
 
@@ -121,20 +121,33 @@ add_custom_command(
     DEPFILE "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp.d"
 )
 
+add_library(ogler_editor STATIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_editor.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_lexer.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_resources.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/sciter_scintilla.cpp"
+
+    "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp")
+add_dependencies(ogler_editor generate_resources)
+
+target_link_libraries(ogler_editor
+    PUBLIC
+    scintilla
+    ComCtl32
+    Sciter::Sciter)
+target_include_directories(ogler_editor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}")
+set_target_properties(ogler_editor
+    PROPERTIES
+    CXX_STANDARD 20)
+
 add_library(ogler MODULE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/compile_shader.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/IReaper.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_debug.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_editor.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_lexer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_params.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_resources.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/sciter_scintilla.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan_context.cpp"
-
-    "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan_context.cpp")
 
 set(OGLER_VULKAN_VER "1_0")
 set_target_properties(ogler
@@ -152,13 +165,11 @@ target_link_libraries(ogler
     Vulkan::Vulkan
     Vulkan::Headers
     reaper_sdk
-    scintilla
-    ComCtl32
     nlohmann_json::nlohmann_json
     glslang
     SPIRV
     clap
-    Sciter::Sciter)
+    ogler_editor)
 target_include_directories(ogler PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}")
 add_dependencies(ogler generate_resources)
 

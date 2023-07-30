@@ -26,11 +26,14 @@
 
 #pragma once
 
+#include "sciter_scintilla.hpp"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 #include <memory>
 #include <mutex>
+
+#include <sciter-om-def.h>
 
 #include <WDL/wdltypes.h>
 #include <reaper_plugin.h>
@@ -125,6 +128,8 @@ struct InputImage {
   vk::raii::ImageView view;
 };
 
+class Editor;
+
 class Ogler final {
   const clap::host &host;
   std::unique_ptr<IReaper> reaper;
@@ -162,8 +167,6 @@ class Ogler final {
   std::unique_ptr<Compute> compute;
 
   IVideoFrame *output_frame{};
-
-  class Editor;
 
   std::unique_ptr<Editor> editor;
 

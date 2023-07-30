@@ -26,23 +26,23 @@
 
 #pragma once
 
-#include "ogler.hpp"
-#include "ogler_debug.hpp"
-
 #include <sciter-x.h>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+
+#include <string_view>
 
 namespace ogler {
 
 template <typename Derived> class SciterWindow {
 public:
   HWND hwnd;
+  HINSTANCE hinstance;
 
-protected:
   virtual void resize(int width, int height) {}
 
+protected:
   virtual SC_LOAD_DATA_RETURN_CODES sciter_load_data(LPSCN_LOAD_DATA pnmld) {
     LPCBYTE pb = 0;
     UINT cb = 0;
@@ -75,7 +75,9 @@ protected:
   virtual void sciter_set_cursor(LPSCN_SET_CURSOR) {}
 
   virtual ~SciterWindow() { DestroyWindow(hwnd); }
-  SciterWindow(HWND parent, int width, int height, std::string_view title) {
+  SciterWindow(HWND parent, HINSTANCE hinstance, int width, int height,
+               std::string_view title)
+      : hinstance(hinstance) {
     static ATOM cls_atom = 0;
     if (!cls_atom) {
       WNDCLASSEX cls{
@@ -165,7 +167,7 @@ protected:
             }
             return 0;
           },
-          .hInstance = get_hinstance(),
+          .hInstance = hinstance,
           .lpszClassName = Derived::class_name,
       };
       cls_atom = RegisterClassEx(&cls);
@@ -174,7 +176,7 @@ protected:
     CreateWindowEx(0, reinterpret_cast<LPCSTR>(cls_atom), title.data(),
                    (parent ? WS_CHILD : 0) | WS_VISIBLE | WS_TABSTOP |
                        WS_CLIPCHILDREN,
-                   0, 0, width, height, parent, nullptr, get_hinstance(), this);
+                   0, 0, width, height, parent, nullptr, hinstance, this);
     assert(hwnd);
   }
 };

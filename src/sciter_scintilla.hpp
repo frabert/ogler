@@ -26,35 +26,17 @@
 
 #pragma once
 
-#include "sciter_window.hpp"
+#include <sciter-om-def.h>
+#include <sciter-x.h>
 
-#include <optional>
+#include <memory>
 
 namespace ogler {
-class EditorInterface {
-public:
-  virtual ~EditorInterface() = default;
+struct ScintillaEditorFactory final : public sciter::behavior_factory {
+  HINSTANCE hinstance;
 
-  virtual std::optional<std::string> recompile_shaders() = 0;
-  virtual void set_shader_source(const std::string &source) = 0;
-  virtual const std::string &get_shader_source() = 0;
-  virtual int get_zoom() = 0;
-  virtual void set_zoom(int zoom) = 0;
-  virtual int get_width() = 0;
-  virtual int get_height() = 0;
-  virtual void set_width(int w) = 0;
-  virtual void set_height(int h) = 0;
-};
+  ScintillaEditorFactory(HINSTANCE hinstance);
 
-class Editor final : public SciterWindow<Editor> {
-  std::unique_ptr<EditorInterface> plugin;
-
-public:
-  static constexpr const char *class_name = "ogler";
-  Editor(HWND parent, HINSTANCE hinstance,
-         std::unique_ptr<EditorInterface> plugin);
-
-  void reload_source();
-  void resize(int w, int h) final;
+  virtual sciter::event_handler *create(HELEMENT he) final;
 };
 } // namespace ogler

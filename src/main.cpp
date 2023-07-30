@@ -35,6 +35,8 @@
 
 #include "clap/plugin.hpp"
 
+#include "ogler_resources.hpp"
+
 HINSTANCE hInstance;
 
 extern "C" {
@@ -59,6 +61,7 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
     if (!Scintilla_RegisterClasses(hInst)) {
       return false;
     }
+    ogler::load_ogler_resources();
   } else if (dwReason == DLL_PROCESS_DETACH) {
     if (lpvReserved == NULL) {
       Scintilla_ReleaseResources();
