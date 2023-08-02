@@ -29,8 +29,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include <iostream>
-
 #include <glslang/Public/ShaderLang.h>
 
 #include "clap/plugin.hpp"
@@ -47,10 +45,9 @@ int Scintilla_ReleaseResources();
 namespace ogler {
 HINSTANCE get_hinstance() { return hInstance; }
 
-SharedVulkan &Ogler::get_shared_vulkan() {
-  static SharedVulkan shared_vulkan;
-  return shared_vulkan;
-}
+static std::unique_ptr<SharedVulkan> shared_vulkan = nullptr;
+
+SharedVulkan &Ogler::get_shared_vulkan() { return *shared_vulkan; }
 
 } // namespace ogler
 
@@ -77,7 +74,11 @@ static_assert(clap::SupportsAudioPorts<ogler::Ogler>);
 
 CLAP_EXPORT extern "C" const clap_plugin_entry_t clap_entry{
     .clap_version = CLAP_VERSION,
-    .init = [](const char *plugin_path) { return true; },
-    .deinit = []() {},
+    .init =
+        [](const char *plugin_path) {
+          ogler::shared_vulkan = std::make_unique<ogler::SharedVulkan>();
+          return true;
+        },
+    .deinit = []() { ogler::shared_vulkan = nullptr; },
     .get_factory = &clap::plugin_factory<ogler::Ogler>::getter,
 };
