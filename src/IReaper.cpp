@@ -32,6 +32,7 @@
 
 #include <reaper_plugin.h>
 
+#include <cassert>
 #include <mutex>
 #include <vector>
 
