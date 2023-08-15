@@ -4,34 +4,55 @@
 <head>
   <link href="style.css" rel="stylesheet" />
   <script>
+    const STYLE_DEFAULT = 32;
+    const STYLE_LINENUMBER = 33;
+    const STYLE_BRACELIGHT = 34;
+    const STYLE_BRACEBAD = 35;
+    const STYLE_CONTROLCHAR = 36;
+    const STYLE_INDENTGUIDE = 37;
+    const STYLE_CALLTIP = 38;
+    const STYLE_FOLDDISPLAYTEXT = 39;
+
+    const STY_Keyword = 40;
+    const STY_Type = 41;
+    const STY_Integer = 42;
+    const STY_Float = 43;
+    const STY_Bool = 44;
+    const STY_Ident = 45;
+    const STY_Operator = 46;
+    const STY_String = 47;
+    const STY_BuiltinFunc = 48;
+    const STY_Punctuation = 49;
+    const STY_Comment = 50;
+    const STY_ErrorAnnotation = 51;
+
+    const AnnotationHidden = 0;
+    const AnnotationStandard = 1;
+    const AnnotationBoxed = 2;
+    const AnnotationIndented = 3;
+
+    const error_re = /^ERROR: <source>:(\d+): (.+)/gm;
+    function load_compiler_error() {
+      if (!globalThis.ogler.compiler_error) {
+        return;
+      }
+
+      const el = document.getElementById('editor');
+      const sci = el.ScintillaEditor;
+      for (const match of globalThis.ogler.compiler_error.matchAll(error_re)) {
+        const line = parseInt(match[1]);
+        const msg = match[2];
+        sci.annotation_set_text(line - 1, msg);
+        sci.annotation_set_style(line - 1, STY_ErrorAnnotation);
+        sci.annotation_visible = AnnotationIndented;
+      }
+      Window.this.modal(
+        <error caption="Shader compilation error">
+          <pre>{globalThis.ogler.compiler_error}</pre>
+        </error>);
+    }
+
     document.ready = () => {
-      const STYLE_DEFAULT = 32;
-      const STYLE_LINENUMBER = 33;
-      const STYLE_BRACELIGHT = 34;
-      const STYLE_BRACEBAD = 35;
-      const STYLE_CONTROLCHAR = 36;
-      const STYLE_INDENTGUIDE = 37;
-      const STYLE_CALLTIP = 38;
-      const STYLE_FOLDDISPLAYTEXT = 39;
-
-      const STY_Keyword = 40;
-      const STY_Type = 41;
-      const STY_Integer = 42;
-      const STY_Float = 43;
-      const STY_Bool = 44;
-      const STY_Ident = 45;
-      const STY_Operator = 46;
-      const STY_String = 47;
-      const STY_BuiltinFunc = 48;
-      const STY_Punctuation = 49;
-      const STY_Comment = 50;
-      const STY_ErrorAnnotation = 51;
-
-      const AnnotationHidden = 0;
-      const AnnotationStandard = 1;
-      const AnnotationBoxed = 2;
-      const AnnotationIndented = 3;
-
       const el = document.getElementById('editor');
       const sci = el.ScintillaEditor;
       sci.use_tabs = false;
@@ -61,24 +82,10 @@
       });
 
       const rec = document.getElementById('recompile');
-      const error_re = /^ERROR: <source>:(\d+): (.+)/gm;
       rec.on('click', () => {
         globalThis.ogler.shader_source = el.ScintillaEditor.text;
-        const err = globalThis.ogler.recompile();
+        globalThis.ogler.recompile();
         sci.annotation_clear_all();
-        if (err) {
-          for (const match of err.matchAll(error_re)) {
-            const line = parseInt(match[1]);
-            const msg = match[2];
-            sci.annotation_set_text(line - 1, msg);
-            sci.annotation_set_style(line - 1, STY_ErrorAnnotation);
-            sci.annotation_visible = AnnotationIndented;
-          }
-          Window.this.modal(
-            <error caption="Shader compilation error">
-              <pre>{err}</pre>
-            </error>)
-        }
       });
 
       Window.this.on('closerequest', () => {
@@ -92,6 +99,8 @@
       Window.this.on('size', () => {
         [globalThis.ogler.editor_width, globalThis.ogler.editor_height] = Window.this.box('dimension')
       })
+
+      Window.this.on('compiler_error', load_compiler_error)
 
       const help = document.getElementById('help')
       help.on('click', () => {
@@ -189,6 +198,8 @@
           </info>
         )
       });
+
+      load_compiler_error();
     };
   </script>
 </head>

@@ -131,6 +131,7 @@ struct InputImage {
 class Editor;
 
 class Ogler final {
+  friend class OglerEditorInterface;
   const clap::host &host;
   std::unique_ptr<IReaper> reaper;
 
@@ -177,6 +178,8 @@ class Ogler final {
 
   std::optional<EELMutex> eel_mutex;
   double ***gmem{};
+
+  std::optional<std::string> compiler_error;
 
   InputImage create_input_image(int w, int h);
 

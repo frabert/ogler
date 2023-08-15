@@ -60,4 +60,5 @@ scintilla {
     display: block;
     width: *;
     height: *;
+    background-color: magenta;
 }

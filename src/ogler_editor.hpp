@@ -35,7 +35,7 @@ class EditorInterface {
 public:
   virtual ~EditorInterface() = default;
 
-  virtual std::optional<std::string> recompile_shaders() = 0;
+  virtual void recompile_shaders() = 0;
   virtual void set_shader_source(const std::string &source) = 0;
   virtual const std::string &get_shader_source() = 0;
   virtual int get_zoom() = 0;
@@ -44,6 +44,7 @@ public:
   virtual int get_height() = 0;
   virtual void set_width(int w) = 0;
   virtual void set_height(int h) = 0;
+  virtual std::optional<std::string> get_compiler_error() = 0;
 };
 
 class Editor final : public SciterWindow<Editor> {
@@ -56,5 +57,6 @@ public:
 
   void reload_source();
   void resize(int w, int h) final;
+  void compiler_error();
 };
 } // namespace ogler

@@ -35,12 +35,11 @@
 #include <clap/ext/params.h>
 #include <clap/process.h>
 
-#include <algorithm>
 #include <nlohmann/json.hpp>
-
 #include <nlohmann/json_fwd.hpp>
 #include <reaper_plugin_functions.h>
 
+#include <algorithm>
 #include <optional>
 #include <sstream>
 #include <utility>
@@ -370,39 +369,44 @@ bool Ogler::init() {
 
   gmem = reaper->eel_gmem_attach();
 
-  vproc = reaper->create_video_processor();
-  vproc->userdata = this;
-  vproc->process_frame =
-      [](IREAPERVideoProcessor *vproc, const double *parmlist, int nparms,
-         double project_time, double frate, int force_format) {
-        auto plugin = static_cast<Ogler *>(vproc->userdata);
-        return plugin->video_process_frame(
-            std::span{parmlist, static_cast<size_t>(nparms)}, project_time,
-            frate, static_cast<FrameFormat>(force_format));
-      };
-  vproc->get_parameter_value = [](IREAPERVideoProcessor *vproc, int idx,
-                                  double *valueOut) -> bool {
-    auto plugin = static_cast<Ogler *>(vproc->userdata);
-    auto val = plugin->params_get_value(static_cast<clap_id>(idx));
-    if (val.has_value()) {
-      *valueOut = *val;
-      return true;
-    } else {
-      return false;
-    }
-  };
-
   return true;
 }
 
 bool Ogler::activate(double sample_rate, uint32_t min_frames_count,
                      uint32_t max_frames_count) {
-  if (auto err = recompile_shaders()) {
-    DBG << *err << '\n';
+  compiler_error = recompile_shaders();
+
+  if (!compiler_error.has_value()) {
+    vproc = reaper->create_video_processor();
+    vproc->userdata = this;
+    vproc->process_frame =
+        [](IREAPERVideoProcessor *vproc, const double *parmlist, int nparms,
+           double project_time, double frate, int force_format) {
+          auto plugin = static_cast<Ogler *>(vproc->userdata);
+          return plugin->video_process_frame(
+              std::span{parmlist, static_cast<size_t>(nparms)}, project_time,
+              frate, static_cast<FrameFormat>(force_format));
+        };
+    vproc->get_parameter_value = [](IREAPERVideoProcessor *vproc, int idx,
+                                    double *valueOut) -> bool {
+      auto plugin = static_cast<Ogler *>(vproc->userdata);
+      auto val = plugin->params_get_value(static_cast<clap_id>(idx));
+      if (val.has_value()) {
+        *valueOut = *val;
+        return true;
+      } else {
+        return false;
+      }
+    };
+  } else if (editor) {
+    editor->compiler_error();
   }
   return true;
 }
-void Ogler::deactivate() {}
+void Ogler::deactivate() {
+  std::unique_lock<std::mutex> lock(video_mutex);
+  vproc = nullptr;
+}
 
 bool Ogler::start_processing() { return true; }
 
@@ -428,7 +432,7 @@ clap_process_status Ogler::process(const clap_process_t &process) {
 
 void *Ogler::get_extension(std::string_view id) { return nullptr; }
 
-void Ogler::on_main_thread() { host.params_rescan(CLAP_PARAM_RESCAN_ALL); }
+void Ogler::on_main_thread() {}
 
 void to_json(nlohmann::json &j, const Parameter &p) {
   j = {
@@ -494,7 +498,7 @@ bool Ogler::state_load(std::istream &s) {
   if (editor) {
     editor->reload_source();
   }
-  recompile_shaders();
+  host.request_restart();
   return true;
 }
 
@@ -570,8 +574,7 @@ layout(binding = 5) uniform sampler2D ogler_previous_frame;
     params_buffer = std::nullopt;
   }
 
-  host.request_callback();
-
+  host.params_rescan(CLAP_PARAM_RESCAN_ALL);
   return std::nullopt;
 }
 
@@ -1089,20 +1092,39 @@ class OglerEditorInterface final : public EditorInterface {
 public:
   OglerEditorInterface(Ogler &plugin) : plugin(plugin) {}
 
-  std::optional<std::string> recompile_shaders() {
-    return plugin.recompile_shaders();
+  void recompile_shaders() final { plugin.host.request_restart(); }
+
+  void set_shader_source(const std::string &source) final {
+    plugin.data.video_shader = source;
+    plugin.host.state_mark_dirty();
   }
 
-  void set_shader_source(const std::string &source) {
-    plugin.data.video_shader = source;
+  const std::string &get_shader_source() final {
+    return plugin.data.video_shader;
   }
-  const std::string &get_shader_source() { return plugin.data.video_shader; }
-  int get_zoom() { return plugin.data.editor_zoom; }
-  void set_zoom(int zoom) { plugin.data.editor_zoom = zoom; }
-  int get_width() { return plugin.data.editor_w; }
-  int get_height() { return plugin.data.editor_h; }
-  void set_width(int w) { plugin.data.editor_w = w; }
-  void set_height(int h) { plugin.data.editor_h = h; }
+  int get_zoom() final { return plugin.data.editor_zoom; }
+
+  void set_zoom(int zoom) final {
+    plugin.data.editor_zoom = zoom;
+    plugin.host.state_mark_dirty();
+  }
+
+  int get_width() final { return plugin.data.editor_w; }
+  int get_height() final { return plugin.data.editor_h; }
+
+  void set_width(int w) final {
+    plugin.data.editor_w = w;
+    plugin.host.state_mark_dirty();
+  }
+
+  void set_height(int h) final {
+    plugin.data.editor_h = h;
+    plugin.host.state_mark_dirty();
+  }
+
+  std::optional<std::string> get_compiler_error() final {
+    return plugin.compiler_error;
+  }
 };
 
 bool Ogler::gui_set_parent(const clap_window_t &window) {

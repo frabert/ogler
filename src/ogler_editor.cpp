@@ -46,12 +46,7 @@ class EditorScripting : public sciter::om::asset<EditorScripting> {
 public:
   EditorScripting(EditorInterface &plugin) : plugin(plugin) {}
 
-  sciter::value recompile() {
-    if (auto err = plugin.recompile_shaders()) {
-      return *err;
-    }
-    return {};
-  }
+  void recompile() { plugin.recompile_shaders(); }
 
   const std::string &get_shader_source() { return plugin.get_shader_source(); }
   bool set_shader_source(const std::string &source) {
@@ -77,6 +72,15 @@ public:
     return true;
   }
 
+  sciter::value get_compiler_error() {
+    auto err = plugin.get_compiler_error();
+    if (err.has_value()) {
+      return *err;
+    } else {
+      return {};
+    }
+  }
+
   SOM_PASSPORT_BEGIN_EX(ogler, EditorScripting)
   SOM_FUNCS(SOM_FUNC(recompile), )
   SOM_PROPS(SOM_VIRTUAL_PROP(shader_source, get_shader_source,
@@ -84,7 +88,8 @@ public:
             SOM_VIRTUAL_PROP(zoom, get_zoom, set_zoom),
             SOM_VIRTUAL_PROP(editor_width, get_editor_width, set_editor_width),
             SOM_VIRTUAL_PROP(editor_height, get_editor_height,
-                             set_editor_height))
+                             set_editor_height),
+            SOM_RO_VIRTUAL_PROP(compiler_error, get_compiler_error), )
   SOM_PASSPORT_END
 };
 
@@ -107,6 +112,15 @@ void Editor::reload_source() {
   BEHAVIOR_EVENT_PARAMS evt{
       .cmd = CUSTOM,
       .name = L"shader_reload",
+  };
+  BOOL handled;
+  SciterFireEvent(&evt, false, &handled);
+}
+
+void Editor::compiler_error() {
+  BEHAVIOR_EVENT_PARAMS evt{
+      .cmd = CUSTOM,
+      .name = L"compiler_error",
   };
   BOOL handled;
   SciterFireEvent(&evt, false, &handled);
