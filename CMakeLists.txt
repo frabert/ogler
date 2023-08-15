@@ -171,7 +171,16 @@ target_link_libraries(ogler
     clap
     ogler_editor)
 target_include_directories(ogler PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}")
-add_dependencies(ogler generate_resources)
+
+add_executable(ogler_editor_standalone WIN32
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/editor_standalone.cpp"
+)
+target_link_libraries(ogler_editor_standalone
+    PRIVATE
+    ogler_editor)
+set_target_properties(ogler_editor_standalone
+    PROPERTIES
+    CXX_STANDARD 20)
 
 install(
     TARGETS ogler
