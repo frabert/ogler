@@ -31,6 +31,10 @@
 
 #include <glslang/Public/ShaderLang.h>
 
+#include "clap/ext/audio-ports.hpp"
+#include "clap/ext/gui.hpp"
+#include "clap/ext/params.hpp"
+#include "clap/ext/state.hpp"
 #include "clap/plugin.hpp"
 
 #include "ogler_resources.hpp"
@@ -67,10 +71,8 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
   return true;
 }
 
-static_assert(clap::SupportsState<ogler::Ogler>);
-static_assert(clap::SupportsGui<ogler::Ogler>);
-static_assert(clap::SupportsParams<ogler::Ogler>);
-static_assert(clap::SupportsAudioPorts<ogler::Ogler>);
+using ogler_plugin = clap::plugin<ogler::Ogler, clap::state, clap::gui,
+                                  clap::params, clap::audio_ports>;
 
 CLAP_EXPORT extern "C" const clap_plugin_entry_t clap_entry{
     .clap_version = CLAP_VERSION,
@@ -80,5 +82,5 @@ CLAP_EXPORT extern "C" const clap_plugin_entry_t clap_entry{
           return true;
         },
     .deinit = []() { ogler::shared_vulkan = nullptr; },
-    .get_factory = &clap::plugin_factory<ogler::Ogler>::getter,
+    .get_factory = &clap::plugin_factory<ogler_plugin>::getter,
 };
