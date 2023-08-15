@@ -58,43 +58,43 @@ struct host final : clap_host_t {
   }
 
   inline void params_rescan(clap_param_rescan_flags flags) const {
-    auto params = get_extension<clap_host_params_t>(CLAP_EXT_STATE);
+    auto params = get_extension<clap_host_params_t>(CLAP_EXT_PARAMS);
     params->rescan(this, flags);
   }
 
   inline void params_clear(clap_id param_id,
                            clap_param_clear_flags flags) const {
-    auto params = get_extension<clap_host_params_t>(CLAP_EXT_STATE);
+    auto params = get_extension<clap_host_params_t>(CLAP_EXT_PARAMS);
     params->clear(this, param_id, flags);
   }
 
   inline void params_request_flush() const {
-    auto params = get_extension<clap_host_params_t>(CLAP_EXT_STATE);
+    auto params = get_extension<clap_host_params_t>(CLAP_EXT_PARAMS);
     params->request_flush(this);
   }
 
   inline void gui_resize_hints_changed() const {
-    auto gui = get_extension<clap_host_gui_t>(CLAP_EXT_STATE);
+    auto gui = get_extension<clap_host_gui_t>(CLAP_EXT_GUI);
     gui->resize_hints_changed(this);
   }
 
   inline void gui_request_resize(uint32_t width, uint32_t height) const {
-    auto gui = get_extension<clap_host_gui_t>(CLAP_EXT_STATE);
+    auto gui = get_extension<clap_host_gui_t>(CLAP_EXT_GUI);
     gui->request_resize(this, width, height);
   }
 
   inline void gui_request_show() const {
-    auto gui = get_extension<clap_host_gui_t>(CLAP_EXT_STATE);
+    auto gui = get_extension<clap_host_gui_t>(CLAP_EXT_GUI);
     gui->request_show(this);
   }
 
   inline void gui_request_hide() const {
-    auto gui = get_extension<clap_host_gui_t>(CLAP_EXT_STATE);
+    auto gui = get_extension<clap_host_gui_t>(CLAP_EXT_GUI);
     gui->request_hide(this);
   }
 
   inline void gui_closed(bool was_destroyed) const {
-    auto gui = get_extension<clap_host_gui_t>(CLAP_EXT_STATE);
+    auto gui = get_extension<clap_host_gui_t>(CLAP_EXT_GUI);
     gui->closed(this, was_destroyed);
   }
 
