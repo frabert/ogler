@@ -48,6 +48,10 @@ public:
 
   void recompile() { plugin.recompile_shaders(); }
 
+  void set_parameter(int index, float value) {
+    plugin.set_parameter(index, value);
+  }
+
   const std::string &get_shader_source() { return plugin.get_shader_source(); }
   bool set_shader_source(const std::string &source) {
     plugin.set_shader_source(source);
@@ -72,24 +76,14 @@ public:
     return true;
   }
 
-  sciter::value get_compiler_error() {
-    auto err = plugin.get_compiler_error();
-    if (err.has_value()) {
-      return *err;
-    } else {
-      return {};
-    }
-  }
-
   SOM_PASSPORT_BEGIN_EX(ogler, EditorScripting)
-  SOM_FUNCS(SOM_FUNC(recompile), )
+  SOM_FUNCS(SOM_FUNC(recompile), SOM_FUNC(set_parameter), )
   SOM_PROPS(SOM_VIRTUAL_PROP(shader_source, get_shader_source,
                              set_shader_source),
             SOM_VIRTUAL_PROP(zoom, get_zoom, set_zoom),
             SOM_VIRTUAL_PROP(editor_width, get_editor_width, set_editor_width),
             SOM_VIRTUAL_PROP(editor_height, get_editor_height,
-                             set_editor_height),
-            SOM_RO_VIRTUAL_PROP(compiler_error, get_compiler_error), )
+                             set_editor_height), )
   SOM_PASSPORT_END
 };
 
@@ -103,6 +97,11 @@ Editor::Editor(HWND parent, HINSTANCE hinstance,
   SciterLoadFile(hwnd, L"this://app/index.html");
 }
 
+Editor::~Editor() {
+  sciter::value val = {};
+  SciterSetVariable(hwnd, "ogler", &val);
+}
+
 void Editor::resize(int w, int h) {
   plugin->set_width(w);
   plugin->set_height(h);
@@ -114,16 +113,46 @@ void Editor::reload_source() {
       .name = L"shader_reload",
   };
   BOOL handled;
-  SciterFireEvent(&evt, false, &handled);
+  SciterFireEvent(&evt, true, &handled);
 }
 
-void Editor::compiler_error() {
+void Editor::compiler_error(const std::string &error) {
+  auto data = sciter::value::make_map({
+      {"compiler_error", ""},
+  });
   BEHAVIOR_EVENT_PARAMS evt{
       .cmd = CUSTOM,
+      .data = data,
       .name = L"compiler_error",
   };
   BOOL handled;
-  SciterFireEvent(&evt, false, &handled);
+  SciterFireEvent(&evt, true, &handled);
+}
+
+void Editor::params_changed(const std::vector<Parameter> &params) {
+  std::vector<sciter::value> ret;
+  for (const auto &param : params) {
+    ret.push_back(sciter::value::make_map({
+        {"value", param.value},
+        {"name", param.info.name},
+        {"displayName", param.info.display_name},
+        {"defaultValue", param.info.default_value},
+        {"minimumVal", param.info.minimum_val},
+        {"maximumVal", param.info.maximum_val},
+        {"middleValue", param.info.middle_value},
+        {"stepSize", param.info.step_size},
+    }));
+  }
+  auto data = sciter::value::make_map({
+      {"parameters", sciter::value::make_array(ret.size(), ret.data())},
+  });
+  BEHAVIOR_EVENT_PARAMS evt{
+      .cmd = CUSTOM,
+      .data = data,
+      .name = L"params_changed",
+  };
+  BOOL handled;
+  SciterFireEvent(&evt, true, &handled);
 }
 
 } // namespace ogler

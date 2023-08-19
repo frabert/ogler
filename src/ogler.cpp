@@ -377,6 +377,9 @@ bool Ogler::activate(double sample_rate, uint32_t min_frames_count,
   compiler_error = recompile_shaders();
 
   if (!compiler_error.has_value()) {
+    if (editor) {
+      editor->params_changed(data.parameters);
+    }
     vproc = reaper->create_video_processor();
     vproc->userdata = this;
     vproc->process_frame =
@@ -399,7 +402,7 @@ bool Ogler::activate(double sample_rate, uint32_t min_frames_count,
       }
     };
   } else if (editor) {
-    editor->compiler_error();
+    editor->compiler_error(*compiler_error);
   }
   return true;
 }
@@ -1122,8 +1125,10 @@ public:
     plugin.host.state_mark_dirty();
   }
 
-  std::optional<std::string> get_compiler_error() final {
-    return plugin.compiler_error;
+  void set_parameter(size_t index, float value) final {
+    std::unique_lock<std::mutex> lock(plugin.video_mutex);
+    plugin.data.parameters[index].value = value;
+    plugin.host.params_rescan(CLAP_PARAM_RESCAN_VALUES);
   }
 };
 
@@ -1131,6 +1136,11 @@ bool Ogler::gui_set_parent(const clap_window_t &window) {
   editor =
       std::make_unique<Editor>(static_cast<HWND>(window.win32), get_hinstance(),
                                std::make_unique<OglerEditorInterface>(*this));
+  if (compiler_error) {
+    editor->compiler_error(*compiler_error);
+  } else {
+    editor->params_changed(data.parameters);
+  }
   return true;
 }
 

@@ -79,11 +79,6 @@ constexpr const char *string =
         OGLER_VER_MINOR) "." OGLER_STRINGIZE(OGLER_VER_REV);
 } // namespace version
 
-struct Parameter {
-  ParameterInfo info;
-  float value;
-};
-
 void to_json(nlohmann::json &j, const Parameter &p);
 void from_json(const nlohmann::json &j, Parameter &p);
 

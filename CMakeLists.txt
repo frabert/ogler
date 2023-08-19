@@ -134,7 +134,8 @@ target_link_libraries(ogler_editor
     PUBLIC
     scintilla
     ComCtl32
-    Sciter::Sciter)
+    Sciter::Sciter
+    nlohmann_json::nlohmann_json)
 target_include_directories(ogler_editor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}")
 set_target_properties(ogler_editor
     PROPERTIES

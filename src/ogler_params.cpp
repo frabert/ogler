@@ -25,20 +25,33 @@
 */
 
 #include "ogler.hpp"
+#include "ogler_editor.hpp"
 
 #include <clap/ext/params.h>
+#include <mutex>
+#include <optional>
 
 #undef min
 
 namespace ogler {
 
 uint32_t Ogler::params_count() {
-  std::unique_lock<std::recursive_mutex> lock(params_mutex);
+  std::unique_lock<std::recursive_mutex> lock(params_mutex,
+                                              std::try_to_lock_t{});
+  if (!lock.owns_lock()) {
+    return 0;
+  }
+
   return data.parameters.size();
 }
 
 std::optional<clap_param_info_t> Ogler::params_get_info(uint32_t param_index) {
-  std::unique_lock<std::recursive_mutex> lock(params_mutex);
+  std::unique_lock<std::recursive_mutex> lock(params_mutex,
+                                              std::try_to_lock_t{});
+  if (!lock.owns_lock()) {
+    return std::nullopt;
+  }
+
   if (param_index >= data.parameters.size()) {
     return std::nullopt;
   }
@@ -62,7 +75,12 @@ std::optional<clap_param_info_t> Ogler::params_get_info(uint32_t param_index) {
 }
 
 std::optional<double> Ogler::params_get_value(clap_id param_id) {
-  std::unique_lock<std::recursive_mutex> lock(params_mutex);
+  std::unique_lock<std::recursive_mutex> lock(params_mutex,
+                                              std::try_to_lock_t{});
+  if (!lock.owns_lock()) {
+    return std::nullopt;
+  }
+
   if (param_id >= data.parameters.size()) {
     return std::nullopt;
   }
@@ -71,7 +89,12 @@ std::optional<double> Ogler::params_get_value(clap_id param_id) {
 
 bool Ogler::params_value_to_text(clap_id param_id, double value,
                                  std::span<char> out_buffer) {
-  std::unique_lock<std::recursive_mutex> lock(params_mutex);
+  std::unique_lock<std::recursive_mutex> lock(params_mutex,
+                                              std::try_to_lock_t{});
+  if (!lock.owns_lock()) {
+    return false;
+  }
+
   if (param_id >= data.parameters.size()) {
     return false;
   }
@@ -84,7 +107,12 @@ bool Ogler::params_value_to_text(clap_id param_id, double value,
 std::optional<double>
 Ogler::params_text_to_value(clap_id param_id,
                             std::string_view param_value_text) {
-  std::unique_lock<std::recursive_mutex> lock(params_mutex);
+  std::unique_lock<std::recursive_mutex> lock(params_mutex,
+                                              std::try_to_lock_t{});
+  if (!lock.owns_lock()) {
+    return std::nullopt;
+  }
+
   if (param_id >= data.parameters.size()) {
     return std::nullopt;
   }
@@ -97,7 +125,12 @@ void Ogler::params_flush(const clap_input_events_t &in,
 }
 
 void Ogler::handle_events(const clap_input_events_t &events) {
-  std::unique_lock<std::recursive_mutex> lock(params_mutex);
+  std::unique_lock<std::recursive_mutex> lock(params_mutex,
+                                              std::try_to_lock_t{});
+  if (!lock.owns_lock()) {
+    return;
+  }
+
   for (uint32_t i = 0; i < events.size(&events); ++i) {
     auto event = events.get(&events, i);
     switch (event->type) {
@@ -116,6 +149,10 @@ void Ogler::handle_events(const clap_input_events_t &events) {
     default:
       break;
     }
+  }
+
+  if (editor) {
+    editor->params_changed(data.parameters);
   }
 }
 

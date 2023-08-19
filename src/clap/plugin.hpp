@@ -180,15 +180,7 @@ const clap_plugin_t *create_plugin(const clap_host_t *host) {
 };
 
 template <typename T, template <typename> typename... Exts> struct plugin {
-  static constexpr auto id = T::id;
-  static constexpr auto name = T::name;
-  static constexpr auto vendor = T::vendor;
-  static constexpr auto url = T::url;
-  static constexpr auto manual_url = T::manual_url;
-  static constexpr auto support_url = T::support_url;
-  static constexpr auto version = T::version;
-  static constexpr auto description = T::description;
-  static constexpr auto features = T::features;
+  using impl = T;
 };
 
 namespace detail {
@@ -228,7 +220,7 @@ template <typename... Ts> struct plugin_factory {
           return nullptr;
         }
         const clap_plugin_descriptor_t *descs[] = {
-            &plugin_descriptor<Ts...>::value};
+            &plugin_descriptor<typename Ts::impl...>::value};
         return descs[index];
       },
       .create_plugin = [](const clap_plugin_factory *, const clap_host_t *host,

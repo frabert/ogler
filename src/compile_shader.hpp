@@ -45,6 +45,11 @@ struct ParameterInfo {
   float step_size;
 };
 
+struct Parameter {
+  ParameterInfo info;
+  float value;
+};
+
 void to_json(nlohmann::json &j, const ParameterInfo &p);
 void from_json(const nlohmann::json &j, ParameterInfo &p);
 

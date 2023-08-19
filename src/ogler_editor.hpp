@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include "compile_shader.hpp"
 #include "sciter_window.hpp"
 
 #include <optional>
@@ -44,7 +45,8 @@ public:
   virtual int get_height() = 0;
   virtual void set_width(int w) = 0;
   virtual void set_height(int h) = 0;
-  virtual std::optional<std::string> get_compiler_error() = 0;
+
+  virtual void set_parameter(size_t index, float value) = 0;
 };
 
 class Editor final : public SciterWindow<Editor> {
@@ -54,9 +56,11 @@ public:
   static constexpr const char *class_name = "ogler";
   Editor(HWND parent, HINSTANCE hinstance,
          std::unique_ptr<EditorInterface> plugin);
+  virtual ~Editor();
 
   void reload_source();
   void resize(int w, int h) final;
-  void compiler_error();
+  void compiler_error(const std::string &error);
+  void params_changed(const std::vector<Parameter> &params);
 };
 } // namespace ogler

@@ -40,6 +40,7 @@ class MockEditorInterface final : public ogler::EditorInterface {
   int zoom{1};
   int w;
   int h;
+  std::vector<ogler::Parameter> params;
 
 public:
   void recompile_shaders() final {}
@@ -62,7 +63,7 @@ public:
 
   void set_height(int h) final { this->h = h; }
 
-  std::optional<std::string> get_compiler_error() final { return std::nullopt; }
+  void set_parameter(size_t idx, float value) final {}
 };
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
