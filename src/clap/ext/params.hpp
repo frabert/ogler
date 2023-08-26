@@ -57,67 +57,69 @@ concept Params =
 template <Params Plugin> struct params {
   static constexpr const char *id = CLAP_EXT_PARAMS;
 
-  template <typename Container> static const void *get_ext() {
-    static clap_plugin_params_t params{
-        .count =
-            [](const clap_plugin_t *plugin) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.params_count();
-            },
-        .get_info =
-            [](const clap_plugin_t *plugin, uint32_t param_index,
-               clap_param_info_t *param_info) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              auto info = self->plugin_data.params_get_info(param_index);
-              if (info) {
-                *param_info = *info;
-                return true;
-              } else {
-                return false;
-              }
-            },
-        .get_value =
-            [](const clap_plugin_t *plugin, clap_id param_id,
-               double *out_value) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              auto value = self->plugin_data.params_get_value(param_id);
-              if (value) {
-                *out_value = *value;
-                return true;
-              } else {
-                return false;
-              }
-            },
-        .value_to_text =
-            [](const clap_plugin_t *plugin, clap_id param_id, double value,
-               char *out_buffer, uint32_t out_buffer_capacity) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.params_value_to_text(
-                  param_id, value,
-                  std::span<char>(out_buffer, out_buffer_capacity));
-            },
-        .text_to_value =
-            [](const clap_plugin_t *plugin, clap_id param_id,
-               const char *param_value_text, double *out_value) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              std::string_view text{param_value_text};
-              auto value =
-                  self->plugin_data.params_text_to_value(param_id, text);
-              if (value) {
-                *out_value = *value;
-                return true;
-              } else {
-                return false;
-              }
-            },
-        .flush =
-            [](const clap_plugin_t *plugin, const clap_input_events_t *in,
-               const clap_output_events_t *out) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.params_flush(*in, *out);
-            },
-    };
-    return &params;
-  }
+  template <typename Container> struct impl {
+    static const void *get() {
+      static clap_plugin_params_t params{
+          .count =
+              [](const clap_plugin_t *plugin) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.params_count();
+              },
+          .get_info =
+              [](const clap_plugin_t *plugin, uint32_t param_index,
+                 clap_param_info_t *param_info) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                auto info = self->plugin_data.params_get_info(param_index);
+                if (info) {
+                  *param_info = *info;
+                  return true;
+                } else {
+                  return false;
+                }
+              },
+          .get_value =
+              [](const clap_plugin_t *plugin, clap_id param_id,
+                 double *out_value) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                auto value = self->plugin_data.params_get_value(param_id);
+                if (value) {
+                  *out_value = *value;
+                  return true;
+                } else {
+                  return false;
+                }
+              },
+          .value_to_text =
+              [](const clap_plugin_t *plugin, clap_id param_id, double value,
+                 char *out_buffer, uint32_t out_buffer_capacity) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.params_value_to_text(
+                    param_id, value,
+                    std::span<char>(out_buffer, out_buffer_capacity));
+              },
+          .text_to_value =
+              [](const clap_plugin_t *plugin, clap_id param_id,
+                 const char *param_value_text, double *out_value) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                std::string_view text{param_value_text};
+                auto value =
+                    self->plugin_data.params_text_to_value(param_id, text);
+                if (value) {
+                  *out_value = *value;
+                  return true;
+                } else {
+                  return false;
+                }
+              },
+          .flush =
+              [](const clap_plugin_t *plugin, const clap_input_events_t *in,
+                 const clap_output_events_t *out) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.params_flush(*in, *out);
+              },
+      };
+      return &params;
+    }
+  };
 };
 } // namespace clap

@@ -95,24 +95,26 @@ concept State = requires(T &plugin, std::istream &is, std::ostream &os) {
 template <State Plugin> struct state {
   static constexpr const char *id = CLAP_EXT_STATE;
 
-  template <typename Container> static const void *get_ext() {
-    static clap_plugin_state_t state{
-        .save =
-            [](const clap_plugin_t *plugin, const clap_ostream_t *stream) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              ostreambuf ostreambuf(stream);
-              std::ostream os(&ostreambuf);
-              return self->plugin_data.state_save(os);
-            },
-        .load =
-            [](const clap_plugin_t *plugin, const clap_istream_t *stream) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              istreambuf istreambuf(stream);
-              std::istream is(&istreambuf);
-              return self->plugin_data.state_load(is);
-            },
-    };
-    return &state;
-  }
+  template <typename Container> struct impl {
+    static const void *get() {
+      static clap_plugin_state_t state{
+          .save =
+              [](const clap_plugin_t *plugin, const clap_ostream_t *stream) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                ostreambuf ostreambuf(stream);
+                std::ostream os(&ostreambuf);
+                return self->plugin_data.state_save(os);
+              },
+          .load =
+              [](const clap_plugin_t *plugin, const clap_istream_t *stream) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                istreambuf istreambuf(stream);
+                std::istream is(&istreambuf);
+                return self->plugin_data.state_load(is);
+              },
+      };
+      return &state;
+    }
+  };
 };
 } // namespace clap

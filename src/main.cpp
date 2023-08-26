@@ -74,7 +74,7 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
 using ogler_plugin = clap::plugin<ogler::Ogler, clap::state, clap::gui,
                                   clap::params, clap::audio_ports>;
 
-CLAP_EXPORT extern "C" const clap_plugin_entry_t clap_entry{
+extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry{
     .clap_version = CLAP_VERSION,
     .init =
         [](const char *plugin_path) {

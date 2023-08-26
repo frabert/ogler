@@ -63,109 +63,115 @@ concept Gui =
 template <Gui Plugin> struct gui {
   static constexpr const char *id = CLAP_EXT_GUI;
 
-  template <typename Container> static const void *get_ext() {
-    static clap_plugin_gui gui{
-        .is_api_supported =
-            [](const clap_plugin_t *plugin, const char *api, bool is_floating) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.gui_is_api_supported(
-                  std::string_view{api}, is_floating);
-            },
-        .get_preferred_api =
-            [](const clap_plugin_t *plugin, const char **api,
-               bool *is_floating) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              auto value = self->plugin_data.gui_get_preferred_api();
-              if (value) {
-                *api = std::get<0>(*value);
-                *is_floating = std::get<1>(*value);
-                return true;
-              } else {
-                return false;
-              }
-            },
-        .create =
-            [](const clap_plugin_t *plugin, const char *api, bool is_floating) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.gui_create(std::string_view{api},
-                                                  is_floating);
-            },
-        .destroy =
-            [](const clap_plugin_t *plugin) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.gui_destroy();
-            },
-        .set_scale =
-            [](const clap_plugin_t *plugin, double scale) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.gui_set_scale(scale);
-            },
-        .get_size =
-            [](const clap_plugin_t *plugin, uint32_t *width, uint32_t *height) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              auto value = self->plugin_data.gui_get_size();
-              if (value) {
-                *width = std::get<0>(*value);
-                *height = std::get<1>(*value);
-                return true;
-              } else {
-                return false;
-              }
-            },
-        .can_resize =
-            [](const clap_plugin_t *plugin) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.gui_can_resize();
-            },
-        .get_resize_hints =
-            [](const clap_plugin_t *plugin, clap_gui_resize_hints_t *hints) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              auto value = self->plugin_data.gui_get_resize_hints();
-              if (value) {
-                *hints = *value;
-                return true;
-              } else {
-                return false;
-              }
-            },
-        .adjust_size =
-            [](const clap_plugin_t *plugin, uint32_t *width, uint32_t *height) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.gui_adjust_size(*width, *height);
-            },
-        .set_size =
-            [](const clap_plugin_t *plugin, uint32_t width, uint32_t height) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.gui_set_size(width, height);
-            },
-        .set_parent =
-            [](const clap_plugin_t *plugin, const clap_window_t *window) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.gui_set_parent(*window);
-            },
-        .set_transient =
-            [](const clap_plugin_t *plugin, const clap_window_t *window) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.gui_set_transient(*window);
-            },
-        .suggest_title =
-            [](const clap_plugin_t *plugin, const char *title) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.gui_suggest_title(
-                  std::string_view{title});
-            },
-        .show =
-            [](const clap_plugin_t *plugin) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.gui_show();
-            },
-        .hide =
-            [](const clap_plugin_t *plugin) {
-              auto self = static_cast<Container *>(plugin->plugin_data);
-              return self->plugin_data.gui_hide();
-            },
-    };
-    return &gui;
-  }
+  template <typename Container> struct impl {
+    static const void *get() {
+      static clap_plugin_gui gui{
+          .is_api_supported =
+              [](const clap_plugin_t *plugin, const char *api,
+                 bool is_floating) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.gui_is_api_supported(
+                    std::string_view{api}, is_floating);
+              },
+          .get_preferred_api =
+              [](const clap_plugin_t *plugin, const char **api,
+                 bool *is_floating) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                auto value = self->plugin_data.gui_get_preferred_api();
+                if (value) {
+                  *api = std::get<0>(*value);
+                  *is_floating = std::get<1>(*value);
+                  return true;
+                } else {
+                  return false;
+                }
+              },
+          .create =
+              [](const clap_plugin_t *plugin, const char *api,
+                 bool is_floating) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.gui_create(std::string_view{api},
+                                                    is_floating);
+              },
+          .destroy =
+              [](const clap_plugin_t *plugin) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.gui_destroy();
+              },
+          .set_scale =
+              [](const clap_plugin_t *plugin, double scale) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.gui_set_scale(scale);
+              },
+          .get_size =
+              [](const clap_plugin_t *plugin, uint32_t *width,
+                 uint32_t *height) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                auto value = self->plugin_data.gui_get_size();
+                if (value) {
+                  *width = std::get<0>(*value);
+                  *height = std::get<1>(*value);
+                  return true;
+                } else {
+                  return false;
+                }
+              },
+          .can_resize =
+              [](const clap_plugin_t *plugin) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.gui_can_resize();
+              },
+          .get_resize_hints =
+              [](const clap_plugin_t *plugin, clap_gui_resize_hints_t *hints) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                auto value = self->plugin_data.gui_get_resize_hints();
+                if (value) {
+                  *hints = *value;
+                  return true;
+                } else {
+                  return false;
+                }
+              },
+          .adjust_size =
+              [](const clap_plugin_t *plugin, uint32_t *width,
+                 uint32_t *height) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.gui_adjust_size(*width, *height);
+              },
+          .set_size =
+              [](const clap_plugin_t *plugin, uint32_t width, uint32_t height) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.gui_set_size(width, height);
+              },
+          .set_parent =
+              [](const clap_plugin_t *plugin, const clap_window_t *window) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.gui_set_parent(*window);
+              },
+          .set_transient =
+              [](const clap_plugin_t *plugin, const clap_window_t *window) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.gui_set_transient(*window);
+              },
+          .suggest_title =
+              [](const clap_plugin_t *plugin, const char *title) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.gui_suggest_title(
+                    std::string_view{title});
+              },
+          .show =
+              [](const clap_plugin_t *plugin) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.gui_show();
+              },
+          .hide =
+              [](const clap_plugin_t *plugin) {
+                auto self = static_cast<Container *>(plugin->plugin_data);
+                return self->plugin_data.gui_hide();
+              },
+      };
+      return &gui;
+    }
+  };
 };
 } // namespace clap

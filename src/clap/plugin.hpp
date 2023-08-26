@@ -67,7 +67,12 @@ concept Plugin =
 
 template <typename T> struct plugin_descriptor {
   static constexpr clap_plugin_descriptor_t value{
-      .clap_version = CLAP_VERSION,
+      .clap_version =
+          {
+              CLAP_VERSION_MAJOR,
+              CLAP_VERSION_MINOR,
+              CLAP_VERSION_REVISION,
+          },
       .id = T::id,
       .name = T::name,
       .vendor = T::vendor,
@@ -86,20 +91,20 @@ template <Plugin T, template <typename> typename... Exts> struct plugin_exts;
 template <Plugin T, template <typename> typename Ext,
           template <typename> typename... Exts>
 struct plugin_exts<T, Ext, Exts...> {
-  template <typename Container>
-  static const void *get_ext(std::string_view ext) {
-    if (ext == Ext<T>::id) {
-      return Ext<T>::get_ext<Container>();
+  template <typename Container> struct impl {
+    static const void *get_ext(std::string_view ext) {
+      if (ext == Ext<T>::id) {
+        return Ext<T>::template impl<Container>::get();
+      }
+      return plugin_exts<T, Exts...>::template impl<Container>::get_ext(ext);
     }
-    return plugin_exts<T, Exts...>::get_ext<Container>(ext);
-  }
+  };
 };
 
 template <Plugin T> struct plugin_exts<T> {
-  template <typename Container>
-  static const void *get_ext(std::string_view ext) {
-    return nullptr;
-  }
+  template <typename Container> struct impl {
+    static const void *get_ext(std::string_view ext) { return nullptr; }
+  };
 };
 
 template <Plugin T, template <typename> typename... Exts> struct container {
@@ -156,7 +161,9 @@ template <Plugin T, template <typename> typename... Exts> struct container {
                                 const char *raw_id) -> const void * {
               auto self = static_cast<container *>(plugin->plugin_data);
               std::string_view id{raw_id};
-              auto ext = plugin_exts<T, Exts...>::get_ext<container>(id);
+              auto ext =
+                  plugin_exts<T, Exts...>::template impl<container>::get_ext(
+                      id);
               if (ext == nullptr) {
                 return self->plugin_data.get_extension(id);
               } else {
