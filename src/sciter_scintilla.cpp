@@ -26,7 +26,7 @@
 
 #include "sciter_scintilla.hpp"
 
-#include <sciter-x-behavior.h>
+#include <sciter-js/sciter-x-behavior.h>
 #include <string_view>
 
 #include <Scintilla.h>

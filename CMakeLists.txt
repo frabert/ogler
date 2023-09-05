@@ -104,7 +104,11 @@ target_include_directories(reaper_sdk
 
 find_package(Vulkan REQUIRED)
 find_package(nlohmann_json 3 REQUIRED)
-find_package(Sciter REQUIRED)
+find_package(Sciter CONFIG)
+
+if(NOT Sciter_FOUND)
+    find_package(Sciter MODULE REQUIRED)
+endif()
 
 add_custom_target(
     generate_resources ALL

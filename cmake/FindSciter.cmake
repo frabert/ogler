@@ -1,5 +1,17 @@
-find_path(Sciter_INCLUDE_DIR NAMES "sciter-x.h")
+find_path(Sciter_INCLUDE_DIR NAMES "sciter-x.h" PATH_SUFFIXES "sciter-js")
 mark_as_advanced(Sciter_INCLUDE_DIR)
+
+function(check_is_static validator_result_var item)
+    if(NOT item MATCHES [[\.(lib|a)$]])
+        set(${validator_result_var} FALSE PARENT_SCOPE)
+    endif()
+endfunction()
+
+find_library(Sciter_LIBRARY
+    NAMES "sciter" "sciter-static-release" "sciter-static-debug"
+    HINTS "${Sciter_INCLUDE_DIR}/../../lib"
+    PATH_SUFFIXES "windows/x64" "windows/x86"
+    VALIDATOR check_is_static)
 
 find_program(Sciter_Packfolder "packfolder"
     HINTS "${Sciter_INCLUDE_DIR}/../bin"
@@ -14,8 +26,25 @@ if(Sciter_FOUND)
     set(Sciter_INCLUDE_DIRS ${Sciter_INCLUDE_DIR})
 
     if(NOT TARGET Sciter::Sciter)
-        add_library(Sciter::Sciter INTERFACE IMPORTED)
-        set_target_properties(Sciter::Sciter PROPERTIES
-            INTERFACE_INCLUDE_DIRECTORIES "${Sciter_INCLUDE_DIRS}")
+        if(Sciter_LIBRARY STREQUAL "Sciter_LIBRARY-NOTFOUND")
+            add_library(Sciter::Sciter INTERFACE IMPORTED)
+            set_target_properties(Sciter::Sciter PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES "${Sciter_INCLUDE_DIRS}")
+        else()
+            message(NOTICE "Found static Sciter library")
+            set(Sciter_LIBRARIES "${Sciter_LIBRARY}")
+            add_library(Sciter::Sciter STATIC IMPORTED)
+            set_target_properties(Sciter::Sciter PROPERTIES
+                IMPORTED_LOCATION "${Sciter_LIBRARY}"
+                INTERFACE_INCLUDE_DIRECTORIES "${Sciter_INCLUDE_DIRS}")
+            target_compile_definitions(Sciter::Sciter INTERFACE STATIC_LIB)
+        endif()
+
+        function(sciter_packfolder NAME DIR OUTPUT)
+            add_custom_target(
+                "${NAME}" ALL
+                COMMAND "${Sciter_Packfolder}" "${DIR}" "${OUTPUT}"
+            )
+        endfunction()
     endif()
 endif()

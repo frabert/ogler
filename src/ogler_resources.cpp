@@ -26,8 +26,8 @@
 
 #include "ogler_resources.hpp"
 
-#include <aux-slice.h>
-#include <sciter-x.h>
+#include <sciter-js/aux-slice.h>
+#include <sciter-js/sciter-x.h>
 
 namespace ogler {
 

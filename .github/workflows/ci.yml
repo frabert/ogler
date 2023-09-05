@@ -9,17 +9,9 @@ jobs:
     strategy:
       matrix:
         buildtype: ["Debug", "Release"]
-        sciter-sdk: [ "5.0.2.17" ]
 
     steps:
       - uses: actions/checkout@v3
-      - name: Download Sciter SDK
-        run: |
-          curl `
-            --location https://gitlab.com/sciter-engine/sciter-js-sdk/-/archive/${{ matrix.sciter-sdk }}/sciter-js-sdk-${{ matrix.sciter-sdk }}.zip `
-            --output sciter-js-sdk.zip
-      - name: Unpack Sciter SDK
-        run: 7z x sciter-js-sdk.zip
       - name: Install Ninja
         run: choco install -y ninja
       - name: Install Vulkan SDK
@@ -29,6 +21,8 @@ jobs:
           vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
       - uses: ilammy/msvc-dev-cmd@v1
+      - name: Copy custom triplet
+        run: cp ${{ github.workspace }}/cmake/x64-windows-dynamic-sciter.cmake $env:VCPKG_INSTALLATION_ROOT/triplets/community
       - name: Configure
         env:
           CC: clang-cl
@@ -39,9 +33,8 @@ jobs:
             -S ${{ github.workspace }} `
             -B build `
             -G Ninja `
-            -DVCPKG_TARGET_TRIPLET=x64-windows-static `
-            -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }} `
-            -DSciter_ROOT=${{ github.workspace }}/sciter-js-sdk-${{ matrix.sciter-sdk }}
+            -DVCPKG_TARGET_TRIPLET=x64-windows-dynamic-sciter `
+            -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
       - name: Build
         run: cmake --build build
       - name: Package

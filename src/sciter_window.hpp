@@ -26,7 +26,7 @@
 
 #pragma once
 
-#include <sciter-x.h>
+#include <sciter-js/sciter-x.h>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

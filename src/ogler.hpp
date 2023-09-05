@@ -33,7 +33,7 @@
 #include <memory>
 #include <mutex>
 
-#include <sciter-om-def.h>
+#include <sciter-js/sciter-om-def.h>
 
 #include <WDL/wdltypes.h>
 #include <reaper_plugin.h>

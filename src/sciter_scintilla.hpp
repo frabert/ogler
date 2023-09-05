@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include <sciter-om-def.h>
-#include <sciter-x.h>
+#include <sciter-js/sciter-om-def.h>
+#include <sciter-js/sciter-x.h>
 
 #include <memory>
 
