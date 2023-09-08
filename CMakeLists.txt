@@ -19,7 +19,7 @@ FetchContent_Declare(
 )
 FetchContent_Declare(
     wdl
-    GIT_REPOSITORY https://www-dev.cockos.com/wdl/WDL.git
+    GIT_REPOSITORY https://github.com/justinfrankel/WDL
     GIT_TAG 139d0006275152b38ff7bbab56ccd112a219df91
 )
 FetchContent_Declare(
@@ -112,7 +112,7 @@ endif()
 
 add_custom_target(
     generate_resources ALL
-    COMMAND "${Sciter_Packfolder}" "${CMAKE_CURRENT_SOURCE_DIR}/resources" "${CMAKE_CURRENT_BINARY_DIR}/ogler_resources_data.inc"
+    COMMAND Sciter::packfolder "${CMAKE_CURRENT_SOURCE_DIR}/resources" "${CMAKE_CURRENT_BINARY_DIR}/ogler_resources_data.inc"
 )
 
 add_custom_command(

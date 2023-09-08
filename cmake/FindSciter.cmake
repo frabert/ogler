@@ -1,4 +1,4 @@
-find_path(Sciter_INCLUDE_DIR NAMES "sciter-x.h" PATH_SUFFIXES "sciter-js")
+find_path(Sciter_INCLUDE_DIR NAMES "sciter-js/sciter-x.h")
 mark_as_advanced(Sciter_INCLUDE_DIR)
 
 function(check_is_static validator_result_var item)
@@ -40,11 +40,9 @@ if(Sciter_FOUND)
             target_compile_definitions(Sciter::Sciter INTERFACE STATIC_LIB)
         endif()
 
-        function(sciter_packfolder NAME DIR OUTPUT)
-            add_custom_target(
-                "${NAME}" ALL
-                COMMAND "${Sciter_Packfolder}" "${DIR}" "${OUTPUT}"
-            )
-        endfunction()
+        add_executable(packfolder IMPORTED)
+        set_property(TARGET packfolder PROPERTY IMPORTED_LOCATION ${Sciter_Packfolder})
+
+        add_executable(Sciter::packfolder ALIAS packfolder)
     endif()
 endif()
