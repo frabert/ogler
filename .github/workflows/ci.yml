@@ -12,8 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - name: Install Ninja
-        run: choco install -y ninja
+      - name: Install dependencies
+        run: choco install -y ninja re2c
       - name: Install Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.0
         with:
@@ -55,8 +55,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - name: Install Ninja
-        run: choco install -y ninja
+      - name: Install dependencies
+        run: choco install -y ninja re2c
       - name: Install Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.0
         with:

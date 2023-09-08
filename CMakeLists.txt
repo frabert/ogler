@@ -34,22 +34,13 @@ FetchContent_Declare(
     GIT_TAG 14e5a04e70057972eef8a40df422e30a3b70e4b5 # v12.1.0
 )
 FetchContent_Declare(
-    re2c
-    URL https://github.com/skvadrik/re2c/releases/download/3.0/re2c-3.0.tar.lz
-    URL_HASH SHA3_224=7a5ca7acc8720ea070f6f2998f71f5c52265a4d6f43153907014ebf4
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-)
-FetchContent_Declare(
     clap
     GIT_REPOSITORY https://github.com/free-audio/clap/
     GIT_TAG 41964fa3f44fdbf6feb20df528a9cdf2cc3b05ba # v1.1.8
 )
 
 set(SKIP_GLSLANG_INSTALL TRUE CACHE BOOL "" FORCE)
-set(RE2C_BUILD_RE2GO FALSE CACHE BOOL "" FORCE)
-set(RE2C_BUILD_RE2RUST FALSE CACHE BOOL "" FORCE)
-set(RE2C_BUILD_BENCHMARKS FALSE CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(reaper-sdk wdl scintilla glslang re2c clap)
+FetchContent_MakeAvailable(reaper-sdk wdl scintilla glslang clap)
 
 add_library(scintilla STATIC
     "${scintilla_SOURCE_DIR}/src/AutoComplete.cxx"
@@ -115,9 +106,11 @@ add_custom_target(
     COMMAND Sciter::packfolder "${CMAKE_CURRENT_SOURCE_DIR}/resources" "${CMAKE_CURRENT_BINARY_DIR}/ogler_resources_data.inc"
 )
 
+find_program(RE2C re2c REQUIRED)
+
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp"
-    COMMAND re2c
+    COMMAND ${RE2C}
     ARGS "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_lexer_lex.re"
     --output "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp"
     -I "${CMAKE_CURRENT_SOURCE_DIR}/src"
