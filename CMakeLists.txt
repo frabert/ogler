@@ -29,18 +29,12 @@ FetchContent_Declare(
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_Declare(
-    glslang
-    GIT_REPOSITORY https://github.com/KhronosGroup/glslang
-    GIT_TAG 14e5a04e70057972eef8a40df422e30a3b70e4b5 # v12.1.0
-)
-FetchContent_Declare(
     clap
     GIT_REPOSITORY https://github.com/free-audio/clap/
     GIT_TAG 41964fa3f44fdbf6feb20df528a9cdf2cc3b05ba # v1.1.8
 )
 
-set(SKIP_GLSLANG_INSTALL TRUE CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(reaper-sdk wdl scintilla glslang clap)
+FetchContent_MakeAvailable(reaper-sdk wdl scintilla clap)
 
 add_library(scintilla STATIC
     "${scintilla_SOURCE_DIR}/src/AutoComplete.cxx"
@@ -95,6 +89,7 @@ target_include_directories(reaper_sdk
 
 find_package(Vulkan REQUIRED)
 find_package(nlohmann_json 3 REQUIRED)
+find_package(glslang REQUIRED)
 find_package(Sciter CONFIG)
 
 if(NOT Sciter_FOUND)
@@ -164,8 +159,13 @@ target_link_libraries(ogler
     Vulkan::Headers
     reaper_sdk
     nlohmann_json::nlohmann_json
-    glslang
-    SPIRV
+    glslang::OSDependent
+    glslang::glslang
+    glslang::MachineIndependent
+    glslang::GenericCodeGen
+    glslang::OGLCompiler
+    glslang::SPVRemapper
+    glslang::SPIRV
     clap
     ogler_editor)
 target_include_directories(ogler PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}")

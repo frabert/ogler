@@ -3,6 +3,7 @@
     "dependencies": [
         "nlohmann-json",
         "vulkan",
-        "sciter-js"
+        "sciter-js",
+        "glslang"
     ]
 }
