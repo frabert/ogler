@@ -786,7 +786,7 @@ IVideoFrame *Ogler::video_process_frame(std::span<const double> parms,
   for (size_t i = 0; i < max_num_inputs; ++i) {
     auto input_frame = vproc->renderInputVideoFrame(i, (int)FrameFormat::RGBA);
     if (!input_frame) {
-      input_resolution[i] = {1, 1};
+      input_resolution[i] = {1.f, 1.f};
       input_image_info[i] = {
           .sampler = *sampler,
           .imageView = *empty_input.view,
@@ -809,7 +809,8 @@ IVideoFrame *Ogler::video_process_frame(std::span<const double> parms,
         input_image = create_input_image(input_w, input_h);
       }
 
-      input_resolution[i] = {input_w, input_h};
+      input_resolution[i] = {static_cast<float>(input_w),
+                             static_cast<float>(input_h)};
       input_image_info[i] = {
           .sampler = *sampler,
           .imageView = *input_image.view,
