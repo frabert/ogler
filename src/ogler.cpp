@@ -923,7 +923,7 @@ IVideoFrame *Ogler::video_process_frame(std::span<const double> parms,
     vk::DescriptorBufferInfo uniforms_info{
         .range = sizeof(float) * data.parameters.size(),
     };
-    if (params_buffer) {
+    if (params_buffer && !data.parameters.empty()) {
       uniforms_info.buffer = *params_buffer->buffer;
       // keeping in mind parms[0] is iWet
       for (size_t i = 0; i < parms.size() - 1; ++i) {
