@@ -132,7 +132,10 @@
     );
 
     document.getElementById('params').addEventListener('valueChange', event => {
-      globalThis.ogler.set_parameter(event.detail.index, event.detail.new)
+      if (event.detail.index === undefined) {
+        return;
+      }
+      globalThis.ogler.set_parameter(event.detail.index, event.detail.new);
     })
   };
 </script>

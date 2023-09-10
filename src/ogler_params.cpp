@@ -130,6 +130,7 @@ void Ogler::handle_events(const clap_input_events_t &events) {
   if (!lock.owns_lock()) {
     return;
   }
+  bool events_to_handle = false;
 
   for (uint32_t i = 0; i < events.size(&events); ++i) {
     auto event = events.get(&events, i);
@@ -144,6 +145,7 @@ void Ogler::handle_events(const clap_input_events_t &events) {
         [[unlikely]] data.parameters[param_value_event->param_id].value =
             param_value_event->value;
       }
+      events_to_handle = true;
       break;
     }
     default:
@@ -151,7 +153,7 @@ void Ogler::handle_events(const clap_input_events_t &events) {
     }
   }
 
-  if (editor) {
+  if (editor && events_to_handle) {
     editor->params_changed(data.parameters);
   }
 }
