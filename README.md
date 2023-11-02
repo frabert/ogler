@@ -26,10 +26,11 @@ If you also have a license to statically link Sciter and would wish to compile o
 
 ### Using vcpkg
 
-Vcpkg is the only officially supported way of compiling ogler.
+Vcpkg is the only officially supported way of compiling ogler. Additional care should be taken with glslang (one of the dependencies of ogler): the last version is not supported, so we will need to restore an older one (12.2.0).
 
 Due to the aforementioned issue with Sciter, ogler needs a custom triplet file to compile correctly. Afterwards, vcpkg should be able to take care of all the remaining dependencies automatically:
 
+    git -C $PATH_TO_VCPKG restore --source c140c9516248e6d1b004b78b0446e174b1e5387e -- ports/glslang
     git clone https://github.com/frabert/ogler
     cp ogler/cmake/x64-windows-dynamic-sciter.cmake $PATH_TO_VCPKG/triplets/community
     cmake --toolchain $PATH_TO_VCPKG/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-dynamic-sciter -S ogler -B build-ogler
