@@ -8,7 +8,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        buildtype: ["Debug", "Release"]
+        buildtype: ["Debug", "Release", "MinSizeRel"]
 
     steps:
       - uses: actions/checkout@v3
@@ -51,7 +51,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        buildtype: ["Debug", "Release"]
+        buildtype: ["Debug", "Release", "MinSizeRel"]
 
     steps:
       - uses: actions/checkout@v3
