@@ -23,6 +23,10 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Copy custom triplet
         run: cp ${{ github.workspace }}/cmake/x64-windows-dynamic-sciter.cmake $env:VCPKG_INSTALLATION_ROOT/triplets/community
+      - name: Restore glslang to 12.2.0
+        run: |
+          git -C $env:GITHUB_WORKSPACE/vcpkg-sciter pull
+          git -C $env:VCPKG_INSTALLATION_ROOT restore --source c140c9516248e6d1b004b78b0446e174b1e5387e -- ports/glslang
       - name: Configure
         env:
           CC: clang-cl
@@ -70,6 +74,10 @@ jobs:
           repository: frabert/vcpkg-sciter
           path: vcpkg-sciter
           token: ${{ secrets.SCITER_ACCESS_TOKEN }}
+      - name: Restore glslang to 12.2.0
+        run: |
+          git -C $env:GITHUB_WORKSPACE/vcpkg-sciter pull
+          git -C $env:GITHUB_WORKSPACE/vcpkg-sciter restore --source c140c9516248e6d1b004b78b0446e174b1e5387e -- ports/glslang
       - name: Bootstrap vcpkg
         run: |
           & "$env:GITHUB_WORKSPACE/vcpkg-sciter/bootstrap-vcpkg.bat"
