@@ -29,7 +29,6 @@
 #include <glslang/Public/ShaderLang.h>
 #include <glslang/SPIRV/GlslangToSpv.h>
 
-#include <algorithm>
 #include <sstream>
 #include <stdexcept>
 
@@ -39,11 +38,6 @@
   OGLER_CONCAT(glslang::EShTargetVulkan_, OGLER_VULKAN_VER)
 
 namespace ogler {
-
-struct GlslangInitializer {
-  GlslangInitializer() { glslang::InitializeProcess(); }
-  ~GlslangInitializer() { glslang::FinalizeProcess(); }
-};
 
 static const TBuiltInResource DefaultTBuiltInResource = {
     .maxLights = 32,
@@ -293,7 +287,6 @@ public:
 std::variant<ShaderData, std::string>
 compile_shader(const std::vector<std::pair<std::string, std::string>> &source,
                int params_binding) {
-  static GlslangInitializer initializer;
 
   glslang::TShader shader(EShLangCompute);
   std::vector<const char *> sources;
@@ -302,8 +295,9 @@ compile_shader(const std::vector<std::pair<std::string, std::string>> &source,
     sources.push_back(contents.c_str());
     names.push_back(name.c_str());
   }
+
   shader.setStringsWithLengthsAndNames(sources.data(), nullptr, names.data(),
-                                       source.size());
+                                       sources.size());
   shader.setEnvInput(glslang::EShSourceGlsl, EShLangCompute,
                      glslang::EShClientVulkan, 100);
   shader.setEnvClient(glslang::EShClientVulkan, OGLER_VULKAN_TARGET);

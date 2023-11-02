@@ -62,7 +62,6 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
     if (!Scintilla_RegisterClasses(hInst)) {
       return false;
     }
-    ogler::load_ogler_resources();
   } else if (dwReason == DLL_PROCESS_DETACH) {
     if (lpvReserved == NULL) {
       Scintilla_ReleaseResources();
@@ -79,8 +78,14 @@ extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry{
     .init =
         [](const char *plugin_path) {
           ogler::shared_vulkan = std::make_unique<ogler::SharedVulkan>();
+          glslang::InitializeProcess();
+          ogler::load_ogler_resources();
           return true;
         },
-    .deinit = []() { ogler::shared_vulkan = nullptr; },
+    .deinit =
+        []() {
+          glslang::FinalizeProcess();
+          ogler::shared_vulkan = nullptr;
+        },
     .get_factory = &clap::plugin_factory<ogler_plugin>::getter,
 };
