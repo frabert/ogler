@@ -106,11 +106,19 @@ public:
     }
 
     auto project_output_width =
-        static_cast<int *>(projectconfig_var_addr(cur_proj, reaper_vidw_idx));
+        *static_cast<int *>(projectconfig_var_addr(cur_proj, reaper_vidw_idx));
     auto project_output_height =
-        static_cast<int *>(projectconfig_var_addr(cur_proj, reaper_vidh_idx));
+        *static_cast<int *>(projectconfig_var_addr(cur_proj, reaper_vidh_idx));
 
-    return {*project_output_width, *project_output_height};
+    if (!project_output_width) {
+      project_output_width = fallback_width;
+    }
+
+    if (!project_output_height) {
+      project_output_height = fallback_height;
+    }
+
+    return {project_output_width, project_output_height};
   }
 
   void print_console(const char *msg) { ShowConsoleMsg(msg); }
