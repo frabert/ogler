@@ -34,7 +34,6 @@
 
 #include <cassert>
 #include <mutex>
-#include <vector>
 
 namespace ogler {
 

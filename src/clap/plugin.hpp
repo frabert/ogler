@@ -31,7 +31,6 @@
 #include <clap/factory/plugin-factory.h>
 #include <clap/plugin.h>
 
-#include <concepts>
 #include <string_view>
 
 #include "host.hpp"

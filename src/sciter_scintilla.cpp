@@ -27,7 +27,6 @@
 #include "sciter_scintilla.hpp"
 
 #include <sciter-js/sciter-x-behavior.h>
-#include <string_view>
 
 #include <Scintilla.h>
 #include <ScintillaTypes.h>
@@ -35,7 +34,6 @@
 #include <ScintillaCall.h>
 
 #include "ogler_lexer.hpp"
-#include "ogler_styles.hpp"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

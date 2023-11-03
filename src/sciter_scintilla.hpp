@@ -29,8 +29,6 @@
 #include <sciter-js/sciter-om-def.h>
 #include <sciter-js/sciter-x.h>
 
-#include <memory>
-
 namespace ogler {
 struct ScintillaEditorFactory final : public sciter::behavior_factory {
   HINSTANCE hinstance;

@@ -26,7 +26,6 @@
 
 #pragma once
 
-#include "sciter_scintilla.hpp"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
@@ -51,8 +50,6 @@
 
 #include "compile_shader.hpp"
 #include "vulkan_context.hpp"
-
-#include "sciter_window.hpp"
 
 #include "IReaper.h"
 

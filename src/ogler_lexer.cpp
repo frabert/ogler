@@ -26,11 +26,6 @@
 
 #include "ogler_lexer.hpp"
 
-#include "ogler_styles.hpp"
-
-#include <regex>
-#include <string>
-
 namespace ogler {
 int SCI_METHOD GlslLexer::Version() const { return Scintilla::lvRelease5; }
 

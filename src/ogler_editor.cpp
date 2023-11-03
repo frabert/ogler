@@ -27,17 +27,10 @@
 #include "ogler_editor.hpp"
 
 #include <memory>
-#include <regex>
-#include <span>
-#include <sstream>
-#include <thread>
 #include <vector>
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-
-#include "ogler_lexer.hpp"
-#include "ogler_styles.hpp"
 
 namespace ogler {
 class EditorScripting : public sciter::om::asset<EditorScripting> {

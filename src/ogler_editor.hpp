@@ -29,8 +29,6 @@
 #include "compile_shader.hpp"
 #include "sciter_window.hpp"
 
-#include <optional>
-
 namespace ogler {
 class EditorInterface {
 public:

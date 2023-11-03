@@ -26,7 +26,6 @@
 
 #include "ogler.hpp"
 #include "compile_shader.hpp"
-#include "ogler_debug.hpp"
 #include "ogler_editor.hpp"
 #include "sciter_scintilla.hpp"
 
@@ -41,7 +40,6 @@
 
 #include <algorithm>
 #include <optional>
-#include <sstream>
 #include <utility>
 #include <variant>
 
