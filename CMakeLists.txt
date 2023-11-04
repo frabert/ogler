@@ -24,8 +24,8 @@ FetchContent_Declare(
 )
 FetchContent_Declare(
     scintilla
-    URL https://www.scintilla.org/scintilla534.tgz
-    URL_HASH SHA3_224=1be146d25195ff05514a6853afb847cd2488ad6fb2be094ed7586b1a
+    URL https://www.scintilla.org/scintilla537.tgz
+    URL_HASH SHA3_224=64351352ce4c44ccefb2817f21d89a14aea5714a84933ed47c221812
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_Declare(
