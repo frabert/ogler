@@ -28,7 +28,7 @@
 
 #include <sstream>
 
-#define DBG DebugStream()
+#define DBG ::ogler::DebugStream()
 
 namespace ogler {
 template <typename Derived> class DebugStreamBase {

@@ -26,6 +26,9 @@
 
 #pragma once
 
+#include <string_view>
+#include <vector>
+
 namespace ogler {
-void load_ogler_resources();
-}
+std::vector<unsigned char> get_resource(std::wstring_view name);
+} // namespace ogler

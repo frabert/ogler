@@ -74,10 +74,12 @@ add_library(scintilla STATIC
 
     "${scintilla_SOURCE_DIR}/win32/HanjaDic.cxx"
     "${scintilla_SOURCE_DIR}/win32/PlatWin.cxx"
-    "${scintilla_SOURCE_DIR}/win32/ScintillaWin.cxx")
+    "${scintilla_SOURCE_DIR}/win32/ScintillaWin.cxx"
+)
 target_include_directories(scintilla
     PUBLIC "${scintilla_SOURCE_DIR}/include"
-    PRIVATE "${scintilla_SOURCE_DIR}/src")
+    PRIVATE "${scintilla_SOURCE_DIR}/src"
+)
 target_link_libraries(scintilla PUBLIC gdi32 user32 imm32 ole32 uuid oleaut32 msimg32)
 set_target_properties(scintilla PROPERTIES CXX_STANDARD 17)
 
@@ -85,20 +87,33 @@ add_library(reaper_sdk INTERFACE)
 target_include_directories(reaper_sdk
     INTERFACE
     "${reaper-sdk_SOURCE_DIR}/sdk"
-    "${wdl_SOURCE_DIR}")
+    "${wdl_SOURCE_DIR}"
+)
 
 find_package(Vulkan REQUIRED)
 find_package(nlohmann_json 3 REQUIRED)
 find_package(glslang REQUIRED)
 find_package(Sciter CONFIG)
+find_package(SQLite3 REQUIRED)
 
 if(NOT Sciter_FOUND)
     find_package(Sciter MODULE REQUIRED)
 endif()
 
-add_custom_target(
-    generate_resources ALL
-    COMMAND Sciter::packfolder "${CMAKE_CURRENT_SOURCE_DIR}/resources" "${CMAKE_CURRENT_BINARY_DIR}/ogler_resources_data.inc"
+add_subdirectory(utils)
+
+add_custom_command(
+    OUTPUT
+    "${CMAKE_CURRENT_BINARY_DIR}/resources.cpp"
+    "${CMAKE_CURRENT_BINARY_DIR}/resources.hpp"
+    COMMAND ogler_archiver
+    ARGS
+    --output "${CMAKE_CURRENT_BINARY_DIR}"
+    --depfile "${CMAKE_CURRENT_BINARY_DIR}/resources.d"
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources" resources
+    DEPFILE "${CMAKE_CURRENT_BINARY_DIR}/resources.d"
+    DEPENDS ogler_archiver
+    COMMENT "Generating resource file"
 )
 
 find_program(RE2C re2c REQUIRED)
@@ -119,19 +134,24 @@ add_library(ogler_editor STATIC
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_resources.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sciter_scintilla.cpp"
 
-    "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp")
-add_dependencies(ogler_editor generate_resources)
+    "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp"
+
+    "${CMAKE_CURRENT_BINARY_DIR}/resources.cpp"
+)
 
 target_link_libraries(ogler_editor
     PUBLIC
     scintilla
     ComCtl32
     Sciter::Sciter
-    nlohmann_json::nlohmann_json)
+    nlohmann_json::nlohmann_json
+    SQLite::SQLite3
+)
 target_include_directories(ogler_editor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}")
 set_target_properties(ogler_editor
     PROPERTIES
-    CXX_STANDARD 20)
+    CXX_STANDARD 20
+)
 
 add_library(ogler MODULE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/compile_shader.cpp"
@@ -140,19 +160,22 @@ add_library(ogler MODULE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_debug.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_params.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan_context.cpp")
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan_context.cpp"
+)
 
 set(OGLER_VULKAN_VER "1_0")
 set_target_properties(ogler
     PROPERTIES
     CXX_STANDARD 20
-    SUFFIX ".clap")
+    SUFFIX ".clap"
+)
 target_compile_definitions(ogler
     PRIVATE
     OGLER_VER_MAJOR=${OGLER_VER_MAJOR}
     OGLER_VER_MINOR=${OGLER_VER_MINOR}
     OGLER_VER_REV=${OGLER_VER_REV}
-    OGLER_VULKAN_VER=${OGLER_VULKAN_VER})
+    OGLER_VULKAN_VER=${OGLER_VULKAN_VER}
+)
 target_link_libraries(ogler
     PRIVATE
     Vulkan::Vulkan
@@ -167,7 +190,8 @@ target_link_libraries(ogler
     glslang::SPVRemapper
     glslang::SPIRV
     clap
-    ogler_editor)
+    ogler_editor
+)
 target_include_directories(ogler PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}")
 
 add_executable(ogler_editor_standalone WIN32
@@ -175,14 +199,17 @@ add_executable(ogler_editor_standalone WIN32
 )
 target_link_libraries(ogler_editor_standalone
     PRIVATE
-    ogler_editor)
+    ogler_editor
+)
 set_target_properties(ogler_editor_standalone
     PROPERTIES
-    CXX_STANDARD 20)
+    CXX_STANDARD 20
+)
 
 install(
     TARGETS ogler
-    LIBRARY DESTINATION ".")
+    LIBRARY DESTINATION "."
+)
 
 set(CPACK_PACKAGE_VENDOR "Francesco Bertolaccini")
 set(CPACK_PACKAGE_CONTACT "francesco@bertolaccini.dev")

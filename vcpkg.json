@@ -4,6 +4,8 @@
         "nlohmann-json",
         "vulkan",
         "sciter-js",
-        "glslang"
+        "glslang",
+        "sqlite3",
+        "zlib"
     ]
 }

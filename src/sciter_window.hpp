@@ -33,6 +33,8 @@
 
 #include <string_view>
 
+#include "ogler_resources.hpp"
+
 namespace ogler {
 
 template <typename Derived> class SciterWindow {
@@ -44,15 +46,18 @@ public:
 
 protected:
   virtual SC_LOAD_DATA_RETURN_CODES sciter_load_data(LPSCN_LOAD_DATA pnmld) {
-    LPCBYTE pb = 0;
-    UINT cb = 0;
-    aux::wchars wu = aux::chars_of(pnmld->uri);
-    if (wu.like(WSTR("this://app/*"))) {
-      aux::bytes adata = sciter::archive::instance().get(wu.start + 11);
-      if (adata.length) {
-        SciterDataReady(pnmld->hwnd, pnmld->uri, adata.start, adata.length);
-      }
+    std::wstring_view uri(pnmld->uri);
+
+    if (!uri.starts_with(WSTR("this://app/"))) {
+      return LOAD_OK;
     }
+
+    auto adata = get_resource(uri.substr(11));
+    if (adata.empty()) {
+      return LOAD_OK;
+    }
+
+    SciterDataReady(pnmld->hwnd, pnmld->uri, adata.data(), adata.size());
     return LOAD_OK;
   }
   virtual void sciter_data_loaded(LPSCN_DATA_LOADED) {}

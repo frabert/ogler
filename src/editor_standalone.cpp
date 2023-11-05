@@ -28,7 +28,6 @@
 #include <windows.h>
 
 #include "ogler_editor.hpp"
-#include "ogler_resources.hpp"
 #include "sciter_scintilla.hpp"
 
 static HINSTANCE hinst;
@@ -107,7 +106,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
   RegisterClass(&wc);
 
-  ogler::load_ogler_resources();
   ogler::ScintillaEditorFactory factory(hInstance);
   HWND hwnd =
       CreateWindow(wc.lpszClassName, "Window", WS_OVERLAPPEDWINDOW | WS_VISIBLE,

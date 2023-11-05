@@ -37,8 +37,6 @@
 #include "clap/ext/state.hpp"
 #include "clap/plugin.hpp"
 
-#include "ogler_resources.hpp"
-
 HINSTANCE hInstance;
 
 extern "C" {
@@ -79,7 +77,6 @@ extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry{
         [](const char *plugin_path) {
           ogler::shared_vulkan = std::make_unique<ogler::SharedVulkan>();
           glslang::InitializeProcess();
-          ogler::load_ogler_resources();
           return true;
         },
     .deinit =

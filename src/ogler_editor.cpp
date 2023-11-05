@@ -87,7 +87,7 @@ Editor::Editor(HWND parent, HINSTANCE hinstance,
       plugin(std::move(plugin)) {
   auto value = sciter::value::wrap_asset(new EditorScripting(*this->plugin));
   SciterSetVariable(hwnd, "ogler", &value);
-  SciterLoadFile(hwnd, L"this://app/index.html");
+  SciterLoadFile(hwnd, L"this://app/resources/index.html");
 }
 
 Editor::~Editor() {
