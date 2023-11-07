@@ -48,11 +48,11 @@ protected:
   virtual SC_LOAD_DATA_RETURN_CODES sciter_load_data(LPSCN_LOAD_DATA pnmld) {
     std::wstring_view uri(pnmld->uri);
 
-    if (!uri.starts_with(WSTR("this://app/"))) {
+    if (!uri.starts_with(WSTR("res://"))) {
       return LOAD_OK;
     }
 
-    auto adata = get_resource(uri.substr(11));
+    auto adata = get_resource(uri.substr(6));
     if (adata.empty()) {
       return LOAD_OK;
     }

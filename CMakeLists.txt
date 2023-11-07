@@ -110,7 +110,7 @@ add_custom_command(
     ARGS
     --output "${CMAKE_CURRENT_BINARY_DIR}"
     --depfile "${CMAKE_CURRENT_BINARY_DIR}/resources.d"
-    "${CMAKE_CURRENT_SOURCE_DIR}/resources" resources
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources" ui
     DEPFILE "${CMAKE_CURRENT_BINARY_DIR}/resources.d"
     DEPENDS ogler_archiver
     COMMENT "Generating resource file"
