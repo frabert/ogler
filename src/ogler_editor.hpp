@@ -48,12 +48,18 @@ public:
 };
 
 class Editor final : public SciterWindow<Editor> {
+  friend SciterWindow<Editor>;
+  HWND hwnd;
   std::unique_ptr<EditorInterface> plugin;
+
+protected:
+  void window_created() override;
 
 public:
   static constexpr const char *class_name = "ogler";
-  Editor(HWND parent, HINSTANCE hinstance,
-         std::unique_ptr<EditorInterface> plugin);
+  Editor(HWND hWnd, HINSTANCE hinstance, HMENU hMenu, HWND hwndParent, int cy,
+         int cx, int y, int x, LONG style, const char *name, const char *cls,
+         DWORD exStyle, std::unique_ptr<EditorInterface> plugin);
   virtual ~Editor();
 
   void reload_source();

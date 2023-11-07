@@ -32,7 +32,7 @@
 
 static HINSTANCE hinst;
 
-static ogler::Editor *editor;
+static ogler::WindowHandle<ogler::Editor> editor;
 
 class MockEditorInterface final : public ogler::EditorInterface {
   std::string source;
@@ -65,16 +65,18 @@ public:
   void set_parameter(size_t idx, float value) final {}
 };
 
+static MockEditorInterface editor_interface;
+
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
   switch (msg) {
   case WM_CREATE: {
-    editor =
-        new ogler::Editor(hwnd, hinst, std::make_unique<MockEditorInterface>());
+    editor = ogler::Editor::create(hwnd, hinst, 100, 100, "ogler",
+                                   std::make_unique<MockEditorInterface>());
   } break;
   case WM_SIZE: {
     UINT width = LOWORD(lParam);
     UINT height = HIWORD(lParam);
-    SetWindowPos(editor->hwnd, nullptr, 0, 0, width, height, SWP_NOMOVE);
+    SetWindowPos(editor, nullptr, 0, 0, width, height, SWP_NOMOVE);
   } break;
   case WM_DESTROY:
     PostQuitMessage(0);

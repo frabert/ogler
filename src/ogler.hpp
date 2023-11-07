@@ -32,8 +32,6 @@
 #include <memory>
 #include <mutex>
 
-#include <sciter-js/sciter-om-def.h>
-
 #include <WDL/wdltypes.h>
 #include <reaper_plugin.h>
 #include <video_frame.h>
@@ -49,6 +47,7 @@
 #include "clap/host.hpp"
 
 #include "compile_shader.hpp"
+#include "sciter_window.hpp"
 #include "vulkan_context.hpp"
 
 #include "IReaper.h"
@@ -161,7 +160,7 @@ class Ogler final {
 
   IVideoFrame *output_frame{};
 
-  std::unique_ptr<Editor> editor;
+  WindowHandle<Editor> editor{};
 
   std::string param_text;
 

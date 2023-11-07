@@ -26,7 +26,6 @@
 
 #include "ogler_editor.hpp"
 
-#include <memory>
 #include <vector>
 
 #define WIN32_LEAN_AND_MEAN
@@ -80,11 +79,13 @@ public:
   SOM_PASSPORT_END
 };
 
-Editor::Editor(HWND parent, HINSTANCE hinstance,
+Editor::Editor(HWND hWnd, HINSTANCE hinstance, HMENU hMenu, HWND hwndParent,
+               int cy, int cx, int y, int x, LONG style, const char *name,
+               const char *cls, DWORD exStyle,
                std::unique_ptr<EditorInterface> plugin)
-    : SciterWindow(parent, hinstance, plugin->get_width(), plugin->get_height(),
-                   "ogler"),
-      plugin(std::move(plugin)) {
+    : hwnd(hWnd), plugin(std::move(plugin)) {}
+
+void Editor::window_created() {
   auto value = sciter::value::wrap_asset(new EditorScripting(*this->plugin));
   SciterSetVariable(hwnd, "ogler", &value);
   SciterLoadFile(hwnd, L"res://ui/index.html");

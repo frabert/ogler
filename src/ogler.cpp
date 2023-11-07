@@ -1058,7 +1058,10 @@ bool Ogler::gui_create(std::string_view api, bool is_floating) {
   return true;
 }
 
-void Ogler::gui_destroy() { editor = nullptr; }
+void Ogler::gui_destroy() {
+  DestroyWindow(editor);
+  editor = {};
+}
 
 bool Ogler::gui_set_scale(double scale) { return false; }
 
@@ -1082,7 +1085,7 @@ bool Ogler::gui_set_size(uint32_t width, uint32_t height) {
   if (!editor) {
     return true;
   }
-  SetWindowPos(editor->hwnd, nullptr, 0, 0, width, height, SWP_NOMOVE);
+  SetWindowPos(editor, nullptr, 0, 0, width, height, SWP_NOMOVE);
   data.editor_w = width;
   data.editor_h = height;
   return true;
@@ -1132,8 +1135,8 @@ public:
 };
 
 bool Ogler::gui_set_parent(const clap_window_t &window) {
-  editor =
-      std::make_unique<Editor>(static_cast<HWND>(window.win32), get_hinstance(),
+  editor = Editor::create(static_cast<HWND>(window.win32), get_hinstance(),
+                          data.editor_w, data.editor_h, "ogler",
                                std::make_unique<OglerEditorInterface>(*this));
   if (compiler_error) {
     editor->compiler_error(*compiler_error);
@@ -1146,7 +1149,7 @@ bool Ogler::gui_set_parent(const clap_window_t &window) {
 bool Ogler::gui_set_transient(const clap_window_t &window) { return false; }
 
 void Ogler::gui_suggest_title(std::string_view title) {
-  SetWindowText(editor->hwnd, title.data());
+  SetWindowText(editor, title.data());
 }
 
 bool Ogler::gui_show() { return true; }
