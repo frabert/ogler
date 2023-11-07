@@ -112,6 +112,9 @@ protected:
             switch (Msg) {
             case WM_CREATE: {
 #ifndef NDEBUG
+              SciterSetOption(nullptr, SCITER_SET_SCRIPT_RUNTIME_FEATURES,
+                              ALLOW_FILE_IO | ALLOW_SOCKET_IO | ALLOW_EVAL |
+                                  ALLOW_SYSINFO);
               SciterSetOption(hWnd, SCITER_SET_DEBUG_MODE, TRUE);
 #endif
               SciterSetCallback(
