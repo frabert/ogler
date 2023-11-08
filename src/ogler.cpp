@@ -315,8 +315,6 @@ int Ogler::get_output_height() {
   }
 }
 
-static ScintillaEditorFactory scintilla_factory(get_hinstance());
-
 Ogler::Ogler(const clap::host &host)
     : host(host), reaper(IReaper::get_reaper(host)),
       shared(get_shared_vulkan()),
