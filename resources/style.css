@@ -58,14 +58,3 @@ hr {
 main {
     width: *;
 }
-
-section {}
-
-scintilla {
-    behavior: scintilla;
-    display: block;
-    background-color: magenta;
-    width: *;
-    height: *;
-    background-color: magenta;
-}

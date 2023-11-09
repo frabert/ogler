@@ -1,0 +1,7 @@
+scintilla {
+    behavior: scintilla;
+    display: block;
+    background-color: magenta;
+    width: *;
+    height: *;
+}

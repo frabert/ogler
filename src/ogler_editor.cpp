@@ -25,6 +25,7 @@
 */
 
 #include "ogler_editor.hpp"
+#include "ogler_preferences.hpp"
 
 #include <vector>
 
@@ -86,14 +87,18 @@ Editor::Editor(HWND hWnd, HINSTANCE hinstance, HMENU hMenu, HWND hwndParent,
     : hwnd(hWnd), plugin(std::move(plugin)) {}
 
 void Editor::window_created() {
-  auto value = sciter::value::wrap_asset(new EditorScripting(*this->plugin));
-  SciterSetVariable(hwnd, "ogler", &value);
+  auto ogler_obj = sciter::value::wrap_asset(new EditorScripting(*plugin));
+  SciterSetVariable(hwnd, "ogler", &ogler_obj);
+  auto prefs_obj =
+      sciter::value::wrap_asset(new Preferences(plugin->get_ini_file()));
+  SciterSetVariable(hwnd, "ogler_preferences", &prefs_obj);
   SciterLoadFile(hwnd, L"res://ui/index.html");
 }
 
 Editor::~Editor() {
   sciter::value val = {};
   SciterSetVariable(hwnd, "ogler", &val);
+  SciterSetVariable(hwnd, "ogler_preferences", &val);
 }
 
 void Editor::resize(int w, int h) {

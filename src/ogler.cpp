@@ -27,7 +27,7 @@
 #include "ogler.hpp"
 #include "compile_shader.hpp"
 #include "ogler_editor.hpp"
-#include "sciter_scintilla.hpp"
+#include "ogler_preferences.hpp"
 
 #include <clap/events.h>
 #include <clap/ext/audio-ports.h>
@@ -39,6 +39,7 @@
 #include <reaper_plugin_functions.h>
 
 #include <algorithm>
+#include <mutex>
 #include <optional>
 #include <utility>
 #include <variant>
@@ -348,7 +349,32 @@ Ogler::Ogler(const clap::host &host)
               {}, max_num_inputs, vk::BufferUsageFlagBits::eUniformBuffer,
               vk::SharingMode::eExclusive,
               vk::MemoryPropertyFlagBits::eHostCoherent |
-                  vk::MemoryPropertyFlagBits::eHostVisible)) {}
+                  vk::MemoryPropertyFlagBits::eHostVisible)) {
+  static std::mutex pref_mtx;
+  static const char *ini_file = nullptr;
+  static prefs_page_register_t pref_page = {
+      .idstr = "ogler",
+      .displayname = "ogler",
+      .create = [](HWND parent) -> HWND {
+        if (!ini_file) {
+          return nullptr;
+        }
+        return PreferencesWindow::create(parent, get_hinstance(), 100, 100,
+                                         "ogler preferences", ini_file);
+      },
+      .par_id = 0x9a,
+      .par_idstr = "",
+      .childrenFlag = 0,
+      .treeitem = nullptr,
+      .hwndCache = nullptr,
+      ._extra = {},
+  };
+  std::unique_lock<std::mutex> lock(pref_mtx);
+  if (!ini_file) {
+    ini_file = reaper->get_ini_file();
+    reaper->plugin_register("prefpage", &pref_page);
+  }
+}
 
 Ogler::~Ogler() {
   std::unique_lock<std::mutex> lock(video_mutex);
@@ -456,13 +482,11 @@ void PatchData::deserialize(std::istream &s) {
     if (editor_data.is_null()) {
       editor_w = default_editor_w;
       editor_h = default_editor_h;
-      editor_zoom = default_editor_zoom;
       break;
     }
 
     editor_w = editor_data["width"];
     editor_h = editor_data["height"];
-    editor_zoom = editor_data["zoom"];
   } while (false);
 
   try {
@@ -479,7 +503,6 @@ void PatchData::serialize(std::ostream &s) {
           {
               {"width", editor_w},
               {"height", editor_h},
-              {"zoom", editor_zoom},
           },
       },
       {"parameters", parameters},
@@ -1107,10 +1130,7 @@ public:
   }
   int get_zoom() final { return plugin.data.editor_zoom; }
 
-  void set_zoom(int zoom) final {
-    plugin.data.editor_zoom = zoom;
-    plugin.host.state_mark_dirty();
-  }
+  void set_zoom(int zoom) final { plugin.data.editor_zoom = zoom; }
 
   int get_width() final { return plugin.data.editor_w; }
   int get_height() final { return plugin.data.editor_h; }
@@ -1130,12 +1150,14 @@ public:
     plugin.data.parameters[index].value = value;
     plugin.host.params_rescan(CLAP_PARAM_RESCAN_VALUES);
   }
+
+  const char *get_ini_file() final { return plugin.reaper->get_ini_file(); }
 };
 
 bool Ogler::gui_set_parent(const clap_window_t &window) {
   editor = Editor::create(static_cast<HWND>(window.win32), get_hinstance(),
                           data.editor_w, data.editor_h, "ogler",
-                               std::make_unique<OglerEditorInterface>(*this));
+                          std::make_unique<OglerEditorInterface>(*this));
   if (compiler_error) {
     editor->compiler_error(*compiler_error);
   } else {

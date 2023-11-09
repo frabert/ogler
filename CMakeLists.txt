@@ -133,6 +133,7 @@ add_library(ogler_editor STATIC
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_lexer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_resources.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sciter_scintilla.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_preferences.cpp"
 
     "${CMAKE_CURRENT_BINARY_DIR}/ogler_lexer_lex.cpp"
 

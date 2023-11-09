@@ -66,6 +66,10 @@ public:
 
   virtual void print_console(const char *msg) = 0;
 
+  virtual const char *get_ini_file() = 0;
+
+  virtual int plugin_register(const char *name, void *data) = 0;
+
   static std::unique_ptr<IReaper> get_reaper(const clap::host &host);
 };
 } // namespace ogler

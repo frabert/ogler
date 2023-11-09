@@ -64,6 +64,10 @@ class RealReaper final : public IReaper {
   void *(*projectconfig_var_addr)(ReaProject *proj, int idx);
   int (*projectconfig_var_getoffs)(const char *name, int *szOut);
 
+  const char *(*get_ini_file_)();
+
+  int (*plugin_register_)(const char *, void *);
+
 public:
   RealReaper(const clap::host &host) : host(host) {
     get_reaper_function("NSEEL_HOSTSTUB_EnterMutex", enter_mutex);
@@ -78,6 +82,9 @@ public:
     get_reaper_function("projectconfig_var_addr", projectconfig_var_addr);
     get_reaper_function("projectconfig_var_getoffs", projectconfig_var_getoffs);
 
+    get_reaper_function("get_ini_file", get_ini_file_);
+    get_reaper_function("plugin_register", plugin_register_);
+
     int sz{};
     reaper_vidw_idx = projectconfig_var_getoffs("projvidw", &sz);
     assert(sz == 4);
@@ -86,11 +93,15 @@ public:
     assert(sz == 4);
   }
 
-  EELMutex get_eel_mutex() { return EELMutex(enter_mutex, leave_mutex); }
+  EELMutex get_eel_mutex() override {
+    return EELMutex(enter_mutex, leave_mutex);
+  }
 
-  double ***eel_gmem_attach() { return eel_gmem_attach_f("ogler", true); }
+  double ***eel_gmem_attach() override {
+    return eel_gmem_attach_f("ogler", true);
+  }
 
-  std::unique_ptr<IREAPERVideoProcessor> create_video_processor() {
+  std::unique_ptr<IREAPERVideoProcessor> create_video_processor() override {
     auto reaper_ctx = clap_get_reaper_context(&host, 4);
 
     return std::unique_ptr<IREAPERVideoProcessor>(video_CreateVideoProcessor(
@@ -98,7 +109,7 @@ public:
   }
 
   std::pair<int, int> get_current_project_size(int fallback_width,
-                                               int fallback_height) {
+                                               int fallback_height) override {
     auto cur_proj = EnumProjects(-1, nullptr, 0);
     if (!cur_proj) {
       return {fallback_width, fallback_height};
@@ -120,7 +131,13 @@ public:
     return {project_output_width, project_output_height};
   }
 
-  void print_console(const char *msg) { ShowConsoleMsg(msg); }
+  void print_console(const char *msg) override { ShowConsoleMsg(msg); }
+
+  const char *get_ini_file() override { return get_ini_file_(); }
+
+  int plugin_register(const char *name, void *data) override {
+    return plugin_register_(name, data);
+  }
 };
 
 static std::mutex mtx;
@@ -145,22 +162,28 @@ class MockReaper final : public IReaper {
 public:
   MockReaper(const clap::host &host) : host(host) {}
 
-  EELMutex get_eel_mutex() {
+  EELMutex get_eel_mutex() override {
     return EELMutex([]() { mtx.lock(); }, []() { mtx.unlock(); });
   }
 
-  double ***eel_gmem_attach() { return reinterpret_cast<double ***>(&gmem); }
+  double ***eel_gmem_attach() override {
+    return reinterpret_cast<double ***>(&gmem);
+  }
 
-  std::unique_ptr<IREAPERVideoProcessor> create_video_processor() {
+  std::unique_ptr<IREAPERVideoProcessor> create_video_processor() override {
     return std::make_unique<MockVideoProcessor>();
   }
 
   std::pair<int, int> get_current_project_size(int fallback_width,
-                                               int fallback_height) {
+                                               int fallback_height) override {
     return {128, 128};
   }
 
-  void print_console(const char *msg) { host.log(CLAP_LOG_INFO, msg); }
+  void print_console(const char *msg) override { host.log(CLAP_LOG_INFO, msg); }
+
+  const char *get_ini_file() override { return "ogler.ini"; }
+
+  int plugin_register(const char *, void *) override { return 0; }
 };
 
 std::unique_ptr<IReaper> IReaper::get_reaper(const clap::host &host) {

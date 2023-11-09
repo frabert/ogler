@@ -63,6 +63,8 @@ public:
   void set_height(int h) final { this->h = h; }
 
   void set_parameter(size_t idx, float value) final {}
+
+  const char *get_ini_file() final { return "ogler.ini"; }
 };
 
 static MockEditorInterface editor_interface;

@@ -342,6 +342,14 @@ public:
     sc_call->StyleSetBack(style, back);
   }
 
+  void style_set_size(int style, int size) {
+    sc_call->StyleSetSize(style, size);
+  }
+
+  void set_element_color(int element, int color) {
+    sc_call->SetElementColour(static_cast<Scintilla::Element>(element), color);
+  }
+
   int text_width(int style, const std::string &text) {
     return sc_call->TextWidth(style, text.c_str());
   }
@@ -379,9 +387,22 @@ public:
 
   void empty_undo_buffer() { sc_call->EmptyUndoBuffer(); }
 
+  bool set_viewws(int value) {
+    sc_call->SetViewWS(static_cast<Scintilla::WhiteSpace>(value));
+    return true;
+  }
+  int get_viewws() { return static_cast<int>(sc_call->ViewWS()); }
+
+  bool set_readonly(bool value) {
+    sc_call->SetReadOnly(value);
+    return true;
+  }
+  bool get_readonly() { return sc_call->ReadOnly(); }
+
   SOM_PASSPORT_BEGIN(ScintillaEditor)
   SOM_FUNCS(SOM_FUNC(rgb), SOM_FUNC(rgba), SOM_FUNC(style_set_font),
             SOM_FUNC(style_set_fore), SOM_FUNC(style_set_back),
+            SOM_FUNC(style_set_size), SOM_FUNC(set_element_color),
             SOM_FUNC(text_width), SOM_FUNC(set_margin_width),
             SOM_FUNC(annotation_clear_all), SOM_FUNC(annotation_set_text),
             SOM_FUNC(annotation_set_style), SOM_FUNC(empty_undo_buffer))
@@ -390,7 +411,9 @@ public:
             SOM_VIRTUAL_PROP(use_tabs, get_use_tabs, set_use_tabs),
             SOM_VIRTUAL_PROP(zoom, get_zoom, set_zoom),
             SOM_VIRTUAL_PROP(annotation_visible, annotation_get_visible,
-                             annotation_set_visible))
+                             annotation_set_visible),
+            SOM_VIRTUAL_PROP(view_ws, get_viewws, set_viewws),
+            SOM_VIRTUAL_PROP(readonly, get_readonly, set_readonly))
   SOM_PASSPORT_END
 };
 

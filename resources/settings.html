@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preferences</title>
+    <link href="scintilla.css" rel="stylesheet" />
+    <style>
+        html {
+            background-color: threedface;
+            font: system;
+        }
+
+        #main-fieldset {
+            width: *;
+            height: *;
+        }
+
+        fieldset>legend {
+            background-color: threedface;
+            color: threedtext;
+            font: system;
+        }
+    </style>
+</head>
+
+<body>
+    <fieldset id="main-fieldset">
+        <legend>ogler settings</legend>
+        <table>
+            <tr>
+                <td>Font size</td>
+                <td><input type="integer" value="10" min="1" max="72" step="1" data-pref="font_size" /></td>
+            </tr>
+            <tr>
+                <td>Font face</td>
+                <td><input type="text" novalue="Courier New" value="Consolas" data-pref="font_face" /></td>
+            </tr>
+            <tr>
+                <td>Tab mode</td>
+                <td>
+                    <select data-pref="use_tabs">
+                        <option value="0">Spaces</option>
+                        <option value="1">Tabs</option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td>Tab width</td>
+                <td><input type="integer" value="10" min="1" max="16" step="1" data-pref="tab_width" /></td>
+            </tr>
+            <tr>
+                <td>View whitespace</td>
+                <td>
+                    <select data-pref="view_ws">
+                        <option value="0">Never</option>
+                        <option value="1">Always</option>
+                        <option value="2">After indent</option>
+                        <option value="3">Only indent</option>
+                    </select>
+                </td>
+            </tr>
+        </table>
+        <scintilla id="editor" />
+    </fieldset>
+</body>
+
+<script type="module">
+    import * as Scintilla from './scintilla.js';
+
+    function reloadSettings() {
+        const el = document.getElementById('editor');
+        const sci = el.ScintillaEditor;
+        const prefs = globalThis.ogler_preferences;
+
+        sci.use_tabs = prefs.use_tabs;
+        sci.tab_width = prefs.tab_width;
+        sci.view_ws = prefs.view_ws;
+        sci.style_set_font(Scintilla.STYLE_DEFAULT, prefs.font_face);
+        sci.style_set_size(Scintilla.STYLE_DEFAULT, prefs.font_size);
+        const width = sci.text_width(Scintilla.STYLE_LINENUMBER, '_999');
+        sci.set_margin_width(0, width);
+    }
+
+    document.ready = () => {
+        const el = document.getElementById('editor');
+        const sci = el.ScintillaEditor;
+        const prefs = globalThis.ogler_preferences;
+
+        for (let elem of document.querySelectorAll('input[type="integer"][data-pref],select[data-pref]')) {
+            const pref = elem.getAttribute('data-pref');
+            elem.value = prefs[pref] + 0;
+            elem.addEventListener('change', event => {
+                const prefs = globalThis.ogler_preferences;
+                const pref = event.target.getAttribute('data-pref');
+                const value = parseInt(event.target.value);
+                prefs[pref] = value;
+                reloadSettings();
+            });
+        }
+
+        for (let elem of document.querySelectorAll('input[type="text"][data-pref]')) {
+            elem.value = prefs[elem.getAttribute('data-pref')];
+            elem.addEventListener('change', event => {
+                const prefs = globalThis.ogler_preferences;
+                const pref = event.target.getAttribute('data-pref');
+                prefs[pref] = event.target.value;
+                reloadSettings();
+            });
+        }
+
+        sci.text = `void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+\t// Normalized pixel coordinates (from 0 to 1)
+\tvec2 uv = fragCoord / iResolution.xy;
+
+    // Time varying pixel color
+    vec3 col = 0.5 + 0.5 * cos(iTime + uv.xyx + vec3(0, 2, 4));
+
+\t// Output to screen
+\tfragColor = vec4(col, 1.0);
+}`;
+
+        reloadSettings();
+
+        sci.style_set_fore(Scintilla.STY_Keyword, sci.rgb(0x00, 0x00, 0xFF));
+        sci.style_set_fore(Scintilla.STY_Type, sci.rgb(0x00, 0x80, 0x80));
+        sci.style_set_fore(Scintilla.STY_Integer, sci.rgb(0x4B, 0x00, 0x82));
+        sci.style_set_fore(Scintilla.STY_Float, sci.rgb(0x4B, 0x00, 0x82));
+        sci.style_set_fore(Scintilla.STY_Bool, sci.rgb(0x00, 0x0, 0xFF));
+        sci.style_set_fore(Scintilla.STY_String, sci.rgb(0x80, 0x00, 0x00));
+        sci.style_set_fore(Scintilla.STY_BuiltinFunc, sci.rgb(0x8b, 0x00, 0x8b));
+        sci.style_set_fore(Scintilla.STY_Punctuation, 0);
+        sci.style_set_fore(Scintilla.STY_Comment, sci.rgb(0x00, 0x64, 0x00));
+        sci.style_set_back(Scintilla.STY_ErrorAnnotation, sci.rgba(0xff, 0xcc, 0xcc, 0xff));
+    };
+</script>
+
+</html>

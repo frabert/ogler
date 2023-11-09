@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+  <link href="scintilla.css" rel="stylesheet" />
   <link href="style.css" rel="stylesheet" />
 </head>
 
@@ -18,66 +19,44 @@
 
 <script type="module">
   import { aboutModal, compileErrorModal } from './modals.js';
+  import * as Scintilla from './scintilla.js';
   import ParamList from './paramlist.js';
 
   function loadParameters(params) {
     document.getElementById('params').componentUpdate({ parameters: params });
   }
 
-  const STYLE_DEFAULT = 32;
-  const STYLE_LINENUMBER = 33;
-  const STYLE_BRACELIGHT = 34;
-  const STYLE_BRACEBAD = 35;
-  const STYLE_CONTROLCHAR = 36;
-  const STYLE_INDENTGUIDE = 37;
-  const STYLE_CALLTIP = 38;
-  const STYLE_FOLDDISPLAYTEXT = 39;
-
-  const STY_Keyword = 40;
-  const STY_Type = 41;
-  const STY_Integer = 42;
-  const STY_Float = 43;
-  const STY_Bool = 44;
-  const STY_Ident = 45;
-  const STY_Operator = 46;
-  const STY_String = 47;
-  const STY_BuiltinFunc = 48;
-  const STY_Punctuation = 49;
-  const STY_Comment = 50;
-  const STY_ErrorAnnotation = 51;
-
-  const AnnotationHidden = 0;
-  const AnnotationStandard = 1;
-  const AnnotationBoxed = 2;
-  const AnnotationIndented = 3;
-
   const error_re = /^ERROR: <source>:(\d+): (.+)/gm;
 
   document.ready = () => {
     const el = document.getElementById('editor');
     const sci = el.ScintillaEditor;
-    sci.use_tabs = false;
-    sci.tab_width = 4;
-    sci.style_set_font(STYLE_DEFAULT, 'Consolas');
-    const width = sci.text_width(STYLE_LINENUMBER, '_999');
+    const prefs = globalThis.ogler_preferences;
+
+    sci.use_tabs = prefs.use_tabs;
+    sci.tab_width = prefs.tab_width;
+    sci.style_set_font(Scintilla.STYLE_DEFAULT, prefs.font_face);
+    sci.view_ws = prefs.view_ws;
+
+    const width = sci.text_width(Scintilla.STYLE_LINENUMBER, '_999');
     sci.set_margin_width(0, width);
 
-    sci.style_set_fore(STY_Keyword, sci.rgb(0x00, 0x00, 0xFF));
-    sci.style_set_fore(STY_Type, sci.rgb(0x00, 0x80, 0x80));
-    sci.style_set_fore(STY_Integer, sci.rgb(0x4B, 0x00, 0x82));
-    sci.style_set_fore(STY_Float, sci.rgb(0x4B, 0x00, 0x82));
-    sci.style_set_fore(STY_Bool, sci.rgb(0x00, 0x0, 0xFF));
-    sci.style_set_fore(STY_String, sci.rgb(0x80, 0x00, 0x00));
-    sci.style_set_fore(STY_BuiltinFunc, sci.rgb(0x8b, 0x00, 0x8b));
-    sci.style_set_fore(STY_Punctuation, 0);
-    sci.style_set_fore(STY_Comment, sci.rgb(0x00, 0x64, 0x00));
-    sci.style_set_back(STY_ErrorAnnotation, sci.rgba(0xff, 0xcc, 0xcc, 0xff));
+    sci.style_set_fore(Scintilla.STY_Keyword, sci.rgb(0x00, 0x00, 0xFF));
+    sci.style_set_fore(Scintilla.STY_Type, sci.rgb(0x00, 0x80, 0x80));
+    sci.style_set_fore(Scintilla.STY_Integer, sci.rgb(0x4B, 0x00, 0x82));
+    sci.style_set_fore(Scintilla.STY_Float, sci.rgb(0x4B, 0x00, 0x82));
+    sci.style_set_fore(Scintilla.STY_Bool, sci.rgb(0x00, 0x0, 0xFF));
+    sci.style_set_fore(Scintilla.STY_String, sci.rgb(0x80, 0x00, 0x00));
+    sci.style_set_fore(Scintilla.STY_BuiltinFunc, sci.rgb(0x8b, 0x00, 0x8b));
+    sci.style_set_fore(Scintilla.STY_Punctuation, 0);
+    sci.style_set_fore(Scintilla.STY_Comment, sci.rgb(0x00, 0x64, 0x00));
+    sci.style_set_back(Scintilla.STY_ErrorAnnotation, sci.rgba(0xff, 0xcc, 0xcc, 0xff));
 
     sci.text = globalThis.ogler.shader_source;
     sci.zoom = globalThis.ogler.zoom;
     el.on('zoom', () => {
       globalThis.ogler.zoom = sci.zoom;
-      const width = sci.text_width(STYLE_LINENUMBER, '_999');
+      const width = sci.text_width(Scintilla.STYLE_LINENUMBER, '_999');
       sci.set_margin_width(0, width);
     });
 
@@ -113,8 +92,8 @@
         const line = parseInt(match[1]);
         const msg = match[2];
         sci.annotation_set_text(line - 1, msg);
-        sci.annotation_set_style(line - 1, STY_ErrorAnnotation);
-        sci.annotation_visible = AnnotationIndented;
+        sci.annotation_set_style(line - 1, Scintilla.STY_ErrorAnnotation);
+        sci.annotation_visible = Scintilla.AnnotationIndented;
       }
       Window.this.modal(
         <error caption="Shader compilation error">

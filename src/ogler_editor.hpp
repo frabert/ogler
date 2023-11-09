@@ -45,6 +45,8 @@ public:
   virtual void set_height(int h) = 0;
 
   virtual void set_parameter(size_t index, float value) = 0;
+
+  virtual const char *get_ini_file() = 0;
 };
 
 class Editor final : public SciterWindow<Editor> {
