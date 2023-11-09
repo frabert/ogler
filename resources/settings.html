@@ -35,12 +35,15 @@
             </tr>
             <tr>
                 <td>Font face</td>
-                <td><input type="text" novalue="Courier New" value="Consolas" data-pref="font_face" /></td>
+                <td>
+                    <select data-pref="font_face" id="font_face" string>
+                    </select>
+                </td>
             </tr>
             <tr>
                 <td>Tab mode</td>
                 <td>
-                    <select data-pref="use_tabs">
+                    <select data-pref="use_tabs" integer>
                         <option value="0">Spaces</option>
                         <option value="1">Tabs</option>
                     </select>
@@ -53,7 +56,7 @@
             <tr>
                 <td>View whitespace</td>
                 <td>
-                    <select data-pref="view_ws">
+                    <select data-pref="view_ws" integer>
                         <option value="0">Never</option>
                         <option value="1">Always</option>
                         <option value="2">After indent</option>
@@ -88,7 +91,15 @@
         const sci = el.ScintillaEditor;
         const prefs = globalThis.ogler_preferences;
 
-        for (let elem of document.querySelectorAll('input[type="integer"][data-pref],select[data-pref]')) {
+        const monospace_fonts = document.getElementById('font_face');
+        for (let font of globalThis.monospace_fonts) {
+            const option = document.createElement('option');
+            option.value = font;
+            option.innerText = font;
+            monospace_fonts.appendChild(option);
+        }
+
+        for (let elem of document.querySelectorAll('input[type="integer"][data-pref],select[data-pref][integer]')) {
             const pref = elem.getAttribute('data-pref');
             elem.value = prefs[pref] + 0;
             elem.addEventListener('change', event => {
@@ -100,7 +111,7 @@
             });
         }
 
-        for (let elem of document.querySelectorAll('input[type="text"][data-pref]')) {
+        for (let elem of document.querySelectorAll('input[type="text"][data-pref],select[data-pref][string]')) {
             elem.value = prefs[elem.getAttribute('data-pref')];
             elem.addEventListener('change', event => {
                 const prefs = globalThis.ogler_preferences;

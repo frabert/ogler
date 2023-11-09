@@ -25,6 +25,8 @@
 */
 
 #include <array>
+#include <iterator>
+#include <set>
 #include <string_view>
 
 #define WIN32_LEAN_AND_MEAN
@@ -104,9 +106,40 @@ PreferencesWindow::PreferencesWindow(HWND hWnd, HINSTANCE hinstance,
                                      DWORD exStyle, const char *file)
     : hwnd(hWnd), file(file) {}
 
+static int EnumMonospaceFontsCallback(const LOGFONT *lpelfe,
+                                      const TEXTMETRIC *lpntme, DWORD FontType,
+                                      LPARAM lParam) {
+  auto fonts = reinterpret_cast<std::set<std::string> *>(lParam);
+  if (!(lpelfe->lfPitchAndFamily & FIXED_PITCH)) {
+    return 1;
+  }
+
+  auto font = reinterpret_cast<const ENUMLOGFONTEX *>(lpelfe);
+  fonts->emplace(reinterpret_cast<const char *>(font->elfFullName));
+  return 1;
+}
+
 void PreferencesWindow::window_created() {
-  auto value = sciter::value::wrap_asset(new Preferences(file));
-  SciterSetVariable(hwnd, "ogler_preferences", &value);
+  std::set<std::string> monospace_fonts;
+  auto hdc = GetWindowDC(hwnd);
+  LOGFONT font{
+      .lfCharSet = DEFAULT_CHARSET,
+      .lfFaceName = "",
+  };
+  EnumFontFamiliesEx(hdc, &font, EnumMonospaceFontsCallback,
+                     reinterpret_cast<LPARAM>(&monospace_fonts), 0);
+
+  auto prefs = sciter::value::wrap_asset(new Preferences(file));
+  SciterSetVariable(hwnd, "ogler_preferences", &prefs);
+
+  std::vector<sciter::value> sciter_values;
+  std::transform(monospace_fonts.begin(), monospace_fonts.end(),
+                 std::back_inserter(sciter_values),
+                 [](const auto &str) -> sciter::value { return str; });
+  auto monospace_fonts_sciter =
+      sciter::value::make_array(sciter_values.size(), sciter_values.data());
+  SciterSetVariable(hwnd, "monospace_fonts", &monospace_fonts_sciter);
+
   SciterLoadFile(hwnd, L"res://ui/settings.html");
 }
 
