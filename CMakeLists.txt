@@ -95,6 +95,7 @@ find_package(nlohmann_json 3 REQUIRED)
 find_package(glslang REQUIRED)
 find_package(Sciter CONFIG)
 find_package(SQLite3 REQUIRED)
+find_package(ZLIB REQUIRED)
 
 if(NOT Sciter_FOUND)
     find_package(Sciter MODULE REQUIRED)
@@ -147,6 +148,7 @@ target_link_libraries(ogler_editor
     Sciter::Sciter
     nlohmann_json::nlohmann_json
     SQLite::SQLite3
+    ZLIB::ZLIB
 )
 target_include_directories(ogler_editor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}")
 set_target_properties(ogler_editor

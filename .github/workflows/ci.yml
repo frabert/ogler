@@ -4,7 +4,7 @@ on: [push]
 
 jobs:
   build-windows-dynamic:
-    name: Windows build - Sciter as dynamic library
+    name: Win64 - Dynamic Sciter
     runs-on: windows-latest
     strategy:
       matrix:
@@ -51,7 +51,7 @@ jobs:
           path: build/*.zip
 
   build-windows-static:
-    name: Windows build - Sciter as static library
+    name: Win64 - Static Sciter
     runs-on: windows-latest
     strategy:
       matrix:
