@@ -117,7 +117,7 @@ void Editor::reload_source() {
 
 void Editor::compiler_error(const std::string &error) {
   auto data = sciter::value::make_map({
-      {"compiler_error", ""},
+      {"compiler_error", error},
   });
   BEHAVIOR_EVENT_PARAMS evt{
       .cmd = CUSTOM,
