@@ -26,68 +26,29 @@
 
 #pragma once
 
-#include <istream>
-#include <ostream>
-#include <streambuf>
+#include <concepts>
 
 #include <clap/ext/state.h>
 
 namespace clap {
-template <typename Elem = char, typename Traits = std::char_traits<Elem>>
-class istreambuf : public std::basic_streambuf<Elem, Traits> {
-  const clap_istream_t *stream;
-
+class istream : public clap_istream_t {
 public:
-  using char_type = Elem;
-  using traits_type = Traits;
-  using int_type = typename traits_type::int_type;
-  using pos_type = typename traits_type::pos_type;
-  using off_type = typename traits_type::off_type;
-
-  istreambuf(const clap_istream_t *stream) : stream(stream) {}
-
-protected:
-  int_type underflow() final { return uflow(); }
-
-  int_type uflow() final {
-    int_type value{};
-    auto num_read = stream->read(stream, &value, 1);
-    if (num_read < 0) {
-      throw std::runtime_error("IO error");
-    } else if (num_read == 0) {
-      return traits_type::eof();
-    } else {
-      return value;
-    }
+  inline int64_t read(void *buffer, uint64_t size) const {
+    return static_cast<const clap_istream_t *>(this)->read(this, buffer, size);
   }
 };
+static_assert(sizeof(istream) == sizeof(clap_istream_t));
 
-template <typename Elem = char, typename Traits = std::char_traits<Elem>>
-class ostreambuf : public std::basic_streambuf<Elem, Traits> {
-  const clap_ostream_t *stream;
-
+class ostream : public clap_ostream_t {
 public:
-  using char_type = Elem;
-  using traits_type = Traits;
-  using int_type = typename traits_type::int_type;
-  using pos_type = typename traits_type::pos_type;
-  using off_type = typename traits_type::off_type;
-
-  ostreambuf(const clap_ostream_t *stream) : stream(stream) {}
-
-protected:
-  int_type overflow(int_type ch) final {
-    if (ch != traits_type::eof()) {
-      if (stream->write(stream, &ch, 1) == 1) {
-        return ch;
-      }
-    }
-    return traits_type::eof();
+  inline int64_t write(const void *buffer, uint64_t size) const {
+    return static_cast<const clap_ostream_t *>(this)->write(this, buffer, size);
   }
 };
+static_assert(sizeof(ostream) == sizeof(clap_ostream_t));
 
 template <typename T>
-concept State = requires(T &plugin, std::istream &is, std::ostream &os) {
+concept State = requires(T &plugin, const istream &is, const ostream &os) {
   { plugin.state_save(os) } -> std::same_as<bool>;
   { plugin.state_load(is) } -> std::same_as<bool>;
 };
@@ -101,16 +62,14 @@ template <State Plugin> struct state {
           .save =
               [](const clap_plugin_t *plugin, const clap_ostream_t *stream) {
                 auto self = static_cast<Container *>(plugin->plugin_data);
-                ostreambuf ostreambuf(stream);
-                std::ostream os(&ostreambuf);
-                return self->plugin_data.state_save(os);
+                auto os = static_cast<const ostream *>(stream);
+                return self->plugin_data.state_save(*os);
               },
           .load =
               [](const clap_plugin_t *plugin, const clap_istream_t *stream) {
                 auto self = static_cast<Container *>(plugin->plugin_data);
-                istreambuf istreambuf(stream);
-                std::istream is(&istreambuf);
-                return self->plugin_data.state_load(is);
+                auto is = static_cast<const istream *>(stream);
+                return self->plugin_data.state_load(*is);
               },
       };
       return &state;

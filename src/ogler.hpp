@@ -44,6 +44,7 @@
 #include <clap/host.h>
 #include <clap/plugin.h>
 
+#include "clap/ext/state.hpp"
 #include "clap/host.hpp"
 
 #include "compile_shader.hpp"
@@ -75,9 +76,6 @@ constexpr const char *string =
         OGLER_VER_MINOR) "." OGLER_STRINGIZE(OGLER_VER_REV);
 } // namespace version
 
-void to_json(nlohmann::json &j, const Parameter &p);
-void from_json(const nlohmann::json &j, Parameter &p);
-
 struct PatchData {
   static constexpr int default_editor_w = 1024;
   static constexpr int default_editor_h = 768;
@@ -100,8 +98,8 @@ struct PatchData {
 
   std::vector<Parameter> parameters;
 
-  void deserialize(std::istream &);
-  void serialize(std::ostream &);
+  void deserialize(const clap::istream &);
+  void serialize(const clap::ostream &);
 };
 
 struct SharedVulkan {
@@ -237,8 +235,8 @@ public:
   void reset();
   clap_process_status process(const clap_process_t &process);
 
-  bool state_save(std::ostream &os);
-  bool state_load(std::istream &os);
+  bool state_save(const clap::ostream &os);
+  bool state_load(const clap::istream &os);
 
   void *get_extension(std::string_view id);
   void on_main_thread();

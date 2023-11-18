@@ -24,47 +24,38 @@
     resulting work.
 */
 
-#pragma once
+#include "string_utils.hpp"
 
-#include <optional>
-#include <string>
-#include <utility>
-#include <variant>
-#include <vector>
-
-#include <sciter-js/value.hpp>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
 namespace ogler {
+std::wstring to_wstring(const std::string &input) {
+  std::wstring retVal;
+  auto targetSize = MultiByteToWideChar(
+      CP_UTF8, 0, input.c_str(), static_cast<int>(input.size()), nullptr, 0);
+  retVal.resize(targetSize);
+  auto res = MultiByteToWideChar(CP_UTF8, 0, input.c_str(),
+                                 static_cast<int>(input.size()),
+                                 const_cast<LPWSTR>(retVal.data()), targetSize);
+  if (res == 0) {
+    return {};
+  }
+  return retVal;
+}
 
-struct ParameterInfo {
-  std::string name;
-  std::string display_name;
-  float default_value;
-  float minimum_val;
-  float maximum_val;
-  float middle_value;
-  float step_size;
-
-  sciter::value to_json() const;
-  void from_json(sciter::value value);
-};
-
-struct Parameter {
-  ParameterInfo info;
-  float value;
-
-  sciter::value to_json() const;
-  void from_json(sciter::value value);
-};
-
-struct ShaderData {
-  std::vector<unsigned> spirv_code;
-  std::vector<ParameterInfo> parameters;
-  std::optional<int> output_width;
-  std::optional<int> output_height;
-};
-
-std::variant<ShaderData, std::string>
-compile_shader(const std::vector<std::pair<std::string, std::string>> &source,
-               int params_binding);
+std::string to_string(const std::wstring &input) {
+  std::string retVal;
+  auto targetSize = WideCharToMultiByte(CP_UTF8, 0, input.c_str(),
+                                        static_cast<int>(input.size()), nullptr,
+                                        0, nullptr, nullptr);
+  retVal.resize(targetSize);
+  auto res = WideCharToMultiByte(
+      CP_UTF8, 0, input.c_str(), static_cast<int>(input.size()),
+      const_cast<LPSTR>(retVal.data()), targetSize, nullptr, nullptr);
+  if (res == 0) {
+    return {};
+  }
+  return retVal;
+}
 } // namespace ogler

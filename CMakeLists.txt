@@ -91,7 +91,6 @@ target_include_directories(reaper_sdk
 )
 
 find_package(Vulkan REQUIRED)
-find_package(nlohmann_json 3 REQUIRED)
 find_package(glslang REQUIRED)
 find_package(Sciter CONFIG)
 find_package(SQLite3 REQUIRED)
@@ -146,7 +145,6 @@ target_link_libraries(ogler_editor
     scintilla
     ComCtl32
     Sciter::Sciter
-    nlohmann_json::nlohmann_json
     SQLite::SQLite3
     ZLIB::ZLIB
 )
@@ -163,6 +161,7 @@ add_library(ogler MODULE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_debug.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_params.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/string_utils.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan_context.cpp"
 )
 
@@ -184,7 +183,6 @@ target_link_libraries(ogler
     Vulkan::Vulkan
     Vulkan::Headers
     reaper_sdk
-    nlohmann_json::nlohmann_json
     glslang::OSDependent
     glslang::glslang
     glslang::MachineIndependent

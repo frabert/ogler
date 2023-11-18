@@ -28,19 +28,21 @@
 #include "compile_shader.hpp"
 #include "ogler_editor.hpp"
 #include "ogler_preferences.hpp"
+#include "string_utils.hpp"
 
 #include <clap/events.h>
 #include <clap/ext/audio-ports.h>
 #include <clap/ext/params.h>
 #include <clap/process.h>
 
-#include <nlohmann/json.hpp>
-#include <nlohmann/json_fwd.hpp>
+#include <sciter-js/value.hpp>
+
 #include <reaper_plugin_functions.h>
 
 #include <algorithm>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <utility>
 #include <variant>
 
@@ -459,63 +461,83 @@ void *Ogler::get_extension(std::string_view id) { return nullptr; }
 
 void Ogler::on_main_thread() {}
 
-void to_json(nlohmann::json &j, const Parameter &p) {
-  j = {
-      {"info", p.info},
-      {"value", p.value},
-  };
-}
+void PatchData::deserialize(const clap::istream &s) {
+  std::string json_str;
+  json_str.resize(4096);
+  size_t sz = 0;
+  while (true) {
+    if (json_str.size() <= sz) {
+      json_str.resize(json_str.size() * 2);
+    }
+    auto to_be_read = json_str.size() - sz;
+    auto read = s.read(json_str.data() + sz, to_be_read);
+    sz += read;
+    if (read < to_be_read) {
+      json_str.resize(sz);
+      break;
+    }
+  }
+  auto json_wstr = to_wstring(json_str);
+  auto obj = sciter::value::from_string(json_wstr, CVT_JSON_LITERAL);
 
-void from_json(const nlohmann::json &j, Parameter &p) {
-  j.at("info").get_to(p.info);
-  j.at("value").get_to(p.value);
-}
-
-void PatchData::deserialize(std::istream &s) {
-  nlohmann::json obj;
-  s >> obj;
-
-  video_shader = obj.at("video_shader");
+  video_shader = to_string(obj.get_item("video_shader").get(L""));
 
   do {
-    auto &editor_data = obj["editor"];
-    if (editor_data.is_null()) {
+    auto editor_data = obj.get_item("editor");
+    if (editor_data.is_nothing()) {
       editor_w = default_editor_w;
       editor_h = default_editor_h;
       break;
     }
 
-    editor_w = editor_data["width"];
-    editor_h = editor_data["height"];
+    editor_w = editor_data.get_item("width").get(default_editor_w);
+    editor_h = editor_data.get_item("height").get(default_editor_h);
   } while (false);
 
-  try {
-    obj.at("parameters").get_to(parameters);
-  } catch (const nlohmann::json::out_of_range &) {
+  auto params = obj.get_item("parameters");
+  if (params.is_nothing()) {
+    for (auto &param : parameters) {
+      param = {};
+    }
+  } else {
+    for (int i = 0; i < params.length(); ++i) {
+      parameters[i].from_json(params.get(i));
+    }
   }
 }
 
-void PatchData::serialize(std::ostream &s) {
-  nlohmann::json obj{
+void PatchData::serialize(const clap::ostream &s) {
+  std::vector<sciter::value> params;
+  std::transform(parameters.begin(), parameters.end(),
+                 std::back_inserter(params),
+                 [](auto &param) { return param.to_json(); });
+
+  sciter::value obj = sciter::value::make_map({
       {"video_shader", video_shader},
       {
           "editor",
-          {
+          sciter::value::make_map({
               {"width", editor_w},
               {"height", editor_h},
-          },
+          }),
       },
-      {"parameters", parameters},
-  };
-  s << obj;
+      {"parameters", sciter::value::make_array(params.size(), params.data())},
+  });
+  auto wstr = obj.to_string();
+  auto str = to_string(wstr);
+  std::string_view view = str;
+  while (view.size()) {
+    auto wrote = s.write(view.data(), view.size());
+    view.remove_prefix(wrote);
+  }
 }
 
-bool Ogler::state_save(std::ostream &s) {
+bool Ogler::state_save(const clap::ostream &s) {
   data.serialize(s);
   return true;
 }
 
-bool Ogler::state_load(std::istream &s) {
+bool Ogler::state_load(const clap::istream &s) {
   data.deserialize(s);
   if (editor) {
     editor->reload_source();
