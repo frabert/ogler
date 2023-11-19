@@ -81,8 +81,8 @@ public:
 };
 
 Editor::Editor(HWND hWnd, HINSTANCE hinstance, HMENU hMenu, HWND hwndParent,
-               int cy, int cx, int y, int x, LONG style, const char *name,
-               const char *cls, DWORD exStyle,
+               int cy, int cx, int y, int x, LONG style, WinStr name,
+               WinStr cls, DWORD exStyle,
                std::unique_ptr<EditorInterface> plugin)
     : hwnd(hWnd), plugin(std::move(plugin)) {}
 

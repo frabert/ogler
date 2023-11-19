@@ -72,7 +72,7 @@ static MockEditorInterface editor_interface;
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
   switch (msg) {
   case WM_CREATE: {
-    editor = ogler::Editor::create(hwnd, hinst, 100, 100, "ogler",
+    editor = ogler::Editor::create(hwnd, hinst, 100, 100, TEXT("ogler"),
                                    std::make_unique<MockEditorInterface>());
   } break;
   case WM_SIZE: {

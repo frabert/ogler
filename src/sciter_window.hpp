@@ -38,6 +38,13 @@
 #include "ogler_resources.hpp"
 
 namespace ogler {
+#ifdef UNICODE
+using WinStr = LPCWSTR;
+using WinStrView = std::wstring_view;
+#else
+using WinStr = LPCSTR;
+using WinStrView = std::string_view;
+#endif
 
 template <typename T> struct WindowHandle {
   HWND hWnd{};
@@ -53,15 +60,22 @@ template <typename T> struct WindowHandle {
   }
 };
 
+struct ClassHandle {
+  ATOM atom{};
+  HINSTANCE hInstance{};
+
+  operator WinStr() const { return reinterpret_cast<WinStr>(atom); }
+
+  ~ClassHandle() { UnregisterClass(reinterpret_cast<WinStr>(atom), hInstance); }
+};
+
 template <typename Derived> class SciterWindow {
   template <typename... Args, size_t... Is>
   static WindowHandle<Derived>
   create_impl(HWND parent, HINSTANCE hinstance, int width, int height,
               std::string_view title, std::index_sequence<Is...>,
               Args &&...args) {
-    static ATOM cls_atom = 0;
-    auto args_tuple = std::forward_as_tuple(args...);
-    if (!cls_atom) {
+    static ClassHandle cls_atom = [hinstance]() -> ClassHandle {
       WNDCLASSEX cls{
           .cbSize = sizeof(WNDCLASSEX),
           .style = CS_HREDRAW | CS_VREDRAW,
@@ -163,10 +177,12 @@ template <typename Derived> class SciterWindow {
           .hInstance = hinstance,
           .lpszClassName = Derived::class_name,
       };
-      cls_atom = RegisterClassEx(&cls);
-    }
+      return {RegisterClassEx(&cls), hinstance};
+    }();
+
+    auto args_tuple = std::forward_as_tuple(args...);
     auto res = CreateWindowEx(
-        0, reinterpret_cast<LPCSTR>(cls_atom), title.data(),
+        0, cls_atom, title.data(),
         (parent ? WS_CHILD : 0) | WS_VISIBLE | WS_TABSTOP | WS_CLIPCHILDREN, 0,
         0, width, height, parent, nullptr, hinstance, &args_tuple);
     assert(res);
@@ -178,8 +194,8 @@ public:
 
   template <typename... Args>
   static WindowHandle<Derived> create(HWND parent, HINSTANCE hinstance,
-                                      int width, int height,
-                                      std::string_view title, Args &&...args) {
+                                      int width, int height, WinStrView title,
+                                      Args &&...args) {
     return create_impl(parent, hinstance, width, height, title,
                        std::make_index_sequence<sizeof...(Args)>(),
                        std::forward<Args>(args)...);

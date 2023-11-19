@@ -34,6 +34,7 @@
 #include <ScintillaCall.h>
 
 #include "ogler_lexer.hpp"
+#include "sciter_window.hpp"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -49,8 +50,7 @@ public:
   ScintillaEditor(HINSTANCE hinstance) : hinstance(hinstance) {}
 
   virtual void attached(HELEMENT he) override {
-    static ATOM cls_atom = {};
-    if (!cls_atom) {
+    static ClassHandle cls_atom = [this]() -> ClassHandle {
       WNDCLASSEX cls{
           .cbSize = sizeof(WNDCLASSEX),
           .lpfnWndProc = [](HWND hWnd, UINT Msg, WPARAM wParam,
@@ -272,16 +272,16 @@ public:
             return 0;
           },
           .hInstance = hinstance,
-          .lpszClassName = "sciter_scintilla",
+          .lpszClassName = TEXT("sciter_scintilla"),
       };
-      cls_atom = RegisterClassEx(&cls);
-    }
-
+      return {RegisterClassEx(&cls), hinstance};
+    }();
     self = he;
     sciter::dom::element el = he;
-    CreateWindow(reinterpret_cast<LPCSTR>(cls_atom), TEXT(""),
-                 WS_CHILD | WS_CLIPCHILDREN | WS_VISIBLE, 0, 0, 0, 0,
-                 el.get_element_hwnd(true), 0, hinstance, this);
+    auto hwnd = CreateWindow(cls_atom, TEXT(""),
+                             WS_CHILD | WS_CLIPCHILDREN | WS_VISIBLE, 0, 0, 0,
+                             0, el.get_element_hwnd(true), 0, hinstance, this);
+    assert(hwnd);
     el.attach_hwnd(wnd);
 
     auto fn_ = reinterpret_cast<Scintilla::FunctionDirect>(
@@ -289,8 +289,6 @@ public:
     auto ptr_ = SendMessage(scintilla, SCI_GETDIRECTPOINTER, 0, 0);
     sc_call = std::make_unique<Scintilla::ScintillaCall>();
     sc_call->SetFnPtr(fn_, ptr_);
-
-    sc_call->SetViewWS(Scintilla::WhiteSpace::VisibleAlways);
 
     sc_call->SetILexer(new GlslLexer());
   }

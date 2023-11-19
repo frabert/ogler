@@ -58,9 +58,9 @@ protected:
   void window_created() override;
 
 public:
-  static constexpr const char *class_name = "ogler";
+  static constexpr WinStr class_name = TEXT("ogler");
   Editor(HWND hWnd, HINSTANCE hinstance, HMENU hMenu, HWND hwndParent, int cy,
-         int cx, int y, int x, LONG style, const char *name, const char *cls,
+         int cx, int y, int x, LONG style, WinStr name, WinStr cls,
          DWORD exStyle, std::unique_ptr<EditorInterface> plugin);
   virtual ~Editor();
 

@@ -362,7 +362,7 @@ Ogler::Ogler(const clap::host &host)
           return nullptr;
         }
         return PreferencesWindow::create(parent, get_hinstance(), 100, 100,
-                                         "ogler preferences", ini_file);
+                                         TEXT("ogler preferences"), ini_file);
       },
       .par_id = 0x9a,
       .par_idstr = "",
@@ -1178,7 +1178,7 @@ public:
 
 bool Ogler::gui_set_parent(const clap_window_t &window) {
   editor = Editor::create(static_cast<HWND>(window.win32), get_hinstance(),
-                          data.editor_w, data.editor_h, "ogler",
+                          data.editor_w, data.editor_h, TEXT("ogler"),
                           std::make_unique<OglerEditorInterface>(*this));
   if (compiler_error) {
     editor->compiler_error(*compiler_error);
