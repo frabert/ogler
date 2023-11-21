@@ -5,6 +5,7 @@
         "sciter-js",
         "glslang",
         "sqlite3",
-        "zlib"
+        "zlib",
+        "clap-cleveraudio"
     ]
 }

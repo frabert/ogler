@@ -28,13 +28,8 @@ FetchContent_Declare(
     URL_HASH SHA3_224=64351352ce4c44ccefb2817f21d89a14aea5714a84933ed47c221812
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
-FetchContent_Declare(
-    clap
-    GIT_REPOSITORY https://github.com/free-audio/clap/
-    GIT_TAG 41964fa3f44fdbf6feb20df528a9cdf2cc3b05ba # v1.1.8
-)
 
-FetchContent_MakeAvailable(reaper-sdk wdl scintilla clap)
+FetchContent_MakeAvailable(reaper-sdk wdl scintilla)
 
 add_library(scintilla STATIC
     "${scintilla_SOURCE_DIR}/src/AutoComplete.cxx"
@@ -92,13 +87,10 @@ target_include_directories(reaper_sdk
 
 find_package(Vulkan REQUIRED)
 find_package(glslang REQUIRED)
-find_package(Sciter CONFIG)
+find_package(Sciter MODULE REQUIRED)
 find_package(SQLite3 REQUIRED)
 find_package(ZLIB REQUIRED)
-
-if(NOT Sciter_FOUND)
-    find_package(Sciter MODULE REQUIRED)
-endif()
+find_package(clap CONFIG REQUIRED)
 
 add_subdirectory(utils)
 
