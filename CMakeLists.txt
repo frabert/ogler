@@ -158,6 +158,7 @@ add_library(ogler MODULE
     "${CMAKE_CURRENT_SOURCE_DIR}/src/compile_shader.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/IReaper.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_video_processing.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_debug.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/ogler_params.cpp"
@@ -209,7 +210,7 @@ set_target_properties(ogler_editor_standalone
 
 install(
     TARGETS ogler
-    LIBRARY DESTINATION "."
+    LIBRARY DESTINATION "UserPlugins/FX"
 )
 
 set(CPACK_PACKAGE_VENDOR "Francesco Bertolaccini")
