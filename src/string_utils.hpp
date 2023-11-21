@@ -28,7 +28,23 @@
 
 #include <string>
 
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+
 namespace ogler {
 std::string to_string(const std::wstring &wstring);
+inline std::string to_string(const std::string &string) { return string; }
 std::wstring to_wstring(const std::string &string);
+inline std::wstring to_wstring(const std::wstring &wstring) { return wstring; }
+
+#ifdef UNICODE
+using WinStr = LPCWSTR;
+using WinStrView = std::wstring_view;
+#define OGLER_TO_WINSTR(x) ::ogler::to_wstring((x))
+#else
+using WinStr = LPCSTR;
+using WinStrView = std::string_view;
+#define OGLER_TO_WINSTR(x) ::ogler::to_string((x))
+#endif
 } // namespace ogler

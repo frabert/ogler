@@ -28,23 +28,14 @@
 
 #include <sciter-js/sciter-x.h>
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
 #include <string_view>
 #include <tuple>
 #include <utility>
 
 #include "ogler_resources.hpp"
+#include "string_utils.hpp"
 
 namespace ogler {
-#ifdef UNICODE
-using WinStr = LPCWSTR;
-using WinStrView = std::wstring_view;
-#else
-using WinStr = LPCSTR;
-using WinStrView = std::string_view;
-#endif
 
 template <typename T> struct WindowHandle {
   HWND hWnd{};

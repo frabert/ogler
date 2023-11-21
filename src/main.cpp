@@ -26,9 +26,6 @@
 
 #include "ogler.hpp"
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
 #include <glslang/Public/ShaderLang.h>
 
 #include "clap/ext/audio-ports.hpp"
@@ -37,7 +34,10 @@
 #include "clap/ext/state.hpp"
 #include "clap/plugin.hpp"
 
+#include <sstream>
+
 #include "sciter_scintilla.hpp"
+#include "string_utils.hpp"
 
 HINSTANCE hInstance;
 
@@ -79,8 +79,19 @@ extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry{
     .clap_version = CLAP_VERSION,
     .init =
         [](const char *plugin_path) {
-          ogler::shared_vulkan = std::make_unique<ogler::SharedVulkan>();
           glslang::InitializeProcess();
+          try {
+            ogler::shared_vulkan = std::make_unique<ogler::SharedVulkan>();
+          } catch (vk::Error &err) {
+            std::stringstream errmsg;
+            errmsg << "ogler could not initialize the Vulkan context:\n\n"
+                   << err.what();
+            auto msg = OGLER_TO_WINSTR(errmsg.str());
+
+            MessageBox(nullptr, msg.c_str(), TEXT("ogler initialization error"),
+                       MB_ICONERROR | MB_OK);
+            return false;
+          }
 
           ogler::scintilla_factory =
               std::make_unique<ogler::ScintillaEditorFactory>(
