@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install dependencies
-        run: choco install -y ninja re2c
+        run: choco install -y ninja re2c jq
       - name: Install Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.0
         with:
@@ -38,6 +38,14 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
       - name: Build
         run: cmake --build build
+      - name: Get Sciter version
+        id: sciter-version
+        env:
+          JQ_CMD: "[\"\"version=\"\", .version] | add"
+        run: |
+          jq -r $env:JQ_CMD $env:VCPKG_INSTALLATION_ROOT/ports/sciter-js/vcpkg.json | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+      - name: Download Sciter
+        run: curl -o build/sciter.dll https://gitlab.com/sciter-engine/sciter-js-sdk/-/blob/${{ steps.sciter-version.outputs.version }}/bin/windows/x64/sciter.dll
       - name: Package
         working-directory: build
         run: |
@@ -45,4 +53,6 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: ogler-${{ matrix.buildtype }}-dyn
-          path: build/*.zip
+          path: |
+            build/ogler.clap
+            build/sciter.dll
