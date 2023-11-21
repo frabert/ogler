@@ -4,11 +4,11 @@ on: [push]
 
 jobs:
   build-windows-dynamic:
-    name: Win64 - Dynamic Sciter
+    name: Win64
     runs-on: windows-latest
     strategy:
       matrix:
-        buildtype: ["Debug", "Release", "MinSizeRel"]
+        buildtype: ["Debug", "Release"]
 
     steps:
       - uses: actions/checkout@v3
@@ -21,12 +21,9 @@ jobs:
           vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
       - uses: ilammy/msvc-dev-cmd@v1
-      - name: Copy custom triplet
-        run: cp ${{ github.workspace }}/cmake/x64-windows-dynamic-sciter.cmake $env:VCPKG_INSTALLATION_ROOT/triplets/community
-      - name: Restore glslang to 12.2.0
+      - name: Update vcpkg
         run: |
-          git -C $env:GITHUB_WORKSPACE/vcpkg-sciter pull
-          git -C $env:VCPKG_INSTALLATION_ROOT restore --source c140c9516248e6d1b004b78b0446e174b1e5387e -- ports/glslang
+          git -C $env:VCPKG_INSTALLATION_ROOT pull
       - name: Configure
         env:
           CC: clang-cl
@@ -48,59 +45,4 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: ogler-${{ matrix.buildtype }}-dyn
-          path: build/*.zip
-
-  build-windows-static:
-    name: Win64 - Static Sciter
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        buildtype: ["Debug", "Release", "MinSizeRel"]
-
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install dependencies
-        run: choco install -y ninja re2c
-      - name: Install Vulkan SDK
-        uses: humbletim/setup-vulkan-sdk@v1.2.0
-        with:
-          vulkan-query-version: 1.3.204.0
-          vulkan-components: Vulkan-Headers, Vulkan-Loader
-          vulkan-use-cache: true
-      - uses: ilammy/msvc-dev-cmd@v1
-      - name: Clone custom vcpkg repo
-        uses: actions/checkout@v3
-        with:
-          repository: frabert/vcpkg-sciter
-          path: vcpkg-sciter
-          token: ${{ secrets.SCITER_ACCESS_TOKEN }}
-      - name: Restore glslang to 12.2.0
-        run: |
-          git -C $env:GITHUB_WORKSPACE/vcpkg-sciter pull
-          git -C $env:GITHUB_WORKSPACE/vcpkg-sciter restore --source c140c9516248e6d1b004b78b0446e174b1e5387e -- ports/glslang
-      - name: Bootstrap vcpkg
-        run: |
-          & "$env:GITHUB_WORKSPACE/vcpkg-sciter/bootstrap-vcpkg.bat"
-      - name: Configure
-        env:
-          CC: clang-cl
-          CXX: clang-cl
-          SCITER_ACCESS_TOKEN: ${{ secrets.SCITER_ACCESS_TOKEN }}
-        run: |
-          cmake `
-            --toolchain $env:GITHUB_WORKSPACE/vcpkg-sciter/scripts/buildsystems/vcpkg.cmake `
-            -S ${{ github.workspace }} `
-            -B build `
-            -G Ninja `
-            -DVCPKG_TARGET_TRIPLET=x64-windows-static-md `
-            -DCMAKE_BUILD_TYPE=${{ matrix.buildtype }}
-      - name: Build
-        run: cmake --build build
-      - name: Package
-        working-directory: build
-        run: |
-          cpack -G ZIP
-      - uses: actions/upload-artifact@v3
-        with:
-          name: ogler-${{ matrix.buildtype }}
           path: build/*.zip
