@@ -26,7 +26,6 @@
 
 #pragma once
 
-#include <sciter-js/sciter-om-def.h>
 #include <sciter-js/sciter-x.h>
 
 namespace ogler {

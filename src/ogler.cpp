@@ -37,7 +37,7 @@
 #include <clap/ext/params.h>
 #include <clap/process.h>
 
-#include <sciter-js/value.hpp>
+#include <sciter-js/sciter-x.h>
 
 #include <reaper_plugin_functions.h>
 

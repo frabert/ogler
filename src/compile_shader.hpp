@@ -32,7 +32,7 @@
 #include <variant>
 #include <vector>
 
-#include <sciter-js/value.hpp>
+#include <sciter-js/sciter-x.h>
 
 namespace ogler {
 

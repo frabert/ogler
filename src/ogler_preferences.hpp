@@ -28,7 +28,7 @@
 
 #include <string>
 
-#include <sciter-js/sciter-om.h>
+#include <sciter-js/sciter-x.h>
 
 #include "sciter_window.hpp"
 
