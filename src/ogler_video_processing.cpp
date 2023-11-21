@@ -24,13 +24,11 @@
     resulting work.
 */
 
-#include "ogler.hpp"
 #include "ogler_compute.hpp"
 #include "ogler_uniforms.hpp"
 #include "video_frame.h"
 
 #include <algorithm>
-#include <atomic>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace ogler {
