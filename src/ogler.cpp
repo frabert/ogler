@@ -252,8 +252,9 @@ void PatchData::deserialize(const clap::istream &s) {
       param = {};
     }
   } else {
+    parameters.resize(params.length());
     for (int i = 0; i < params.length(); ++i) {
-      parameters[i].from_json(params.get(i));
+      parameters[i].from_json(params.get_item(i));
     }
   }
 }

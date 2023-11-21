@@ -361,8 +361,8 @@ void Parameter::from_json(sciter::value value) {
   if (value.get_item("info").is_nothing()) {
     info = {};
   } else {
-    info.from_json(value["info"]);
+    info.from_json(value.get_item("info"));
   }
-  value = value.get_item("value").get(info.default_value);
+  this->value = value.get_item("value").get(info.default_value);
 }
 } // namespace ogler
