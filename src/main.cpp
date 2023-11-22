@@ -36,6 +36,7 @@
 
 #include <sstream>
 #include <system_error>
+#include <thread>
 
 #include "module_handle.hpp"
 #include "sciter_scintilla.hpp"
@@ -55,6 +56,7 @@ static std::unique_ptr<SharedVulkan> shared_vulkan = nullptr;
 static std::unique_ptr<ogler::ScintillaEditorFactory> scintilla_factory =
     nullptr;
 static std::unique_ptr<ogler::ModuleHandle> sciter_module = nullptr;
+static std::thread msgbox{};
 
 SharedVulkan &Ogler::get_shared_vulkan() { return *shared_vulkan; }
 
@@ -78,6 +80,15 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
 using ogler_plugin = clap::plugin<ogler::Ogler, clap::state, clap::gui,
                                   clap::params, clap::audio_ports>;
 
+std::thread DetachedMessageBox(const std::string &text,
+                               const std::string &caption, UINT flags) {
+  return std::thread{[text, caption, flags]() {
+    auto win_text = OGLER_TO_WINSTR(text);
+    auto win_caption = OGLER_TO_WINSTR(caption);
+    MessageBox(nullptr, win_text.c_str(), win_caption.c_str(), flags);
+  }};
+}
+
 extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry{
     .clap_version = CLAP_VERSION,
     .init =
@@ -89,10 +100,10 @@ extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry{
             std::stringstream errmsg;
             errmsg << "ogler could not initialize the Vulkan context:\n\n"
                    << err.what();
-            auto msg = OGLER_TO_WINSTR(errmsg.str());
 
-            MessageBox(nullptr, msg.c_str(), TEXT("ogler initialization error"),
-                       MB_ICONERROR | MB_OK);
+            ogler::msgbox =
+                DetachedMessageBox(errmsg.str(), "ogler initialization error",
+                                   MB_ICONERROR | MB_OK);
             return false;
           }
 
@@ -106,19 +117,19 @@ extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry{
                    << err.what();
             auto msg = OGLER_TO_WINSTR(errmsg.str());
 
-            MessageBox(nullptr, msg.c_str(), TEXT("ogler initialization error"),
-                       MB_ICONERROR | MB_OK);
+            ogler::msgbox =
+                DetachedMessageBox(errmsg.str(), "ogler initialization error",
+                                   MB_ICONERROR | MB_OK);
             return false;
           }
 
           auto sciterAPI = reinterpret_cast<SciterAPI_ptr>(
               ogler::sciter_module->get_proc_addr("SciterAPI"));
           if (!sciterAPI) {
-            MessageBox(
-                nullptr,
-                TEXT("ogler could not load the Sciter module:\n\nsciter.dll "
-                     "does not contain SciterAPI entry point"),
-                TEXT("ogler initialization error"), MB_ICONERROR | MB_OK);
+            ogler::msgbox = DetachedMessageBox(
+                "ogler could not load the Sciter module:\n\n"
+                "sciter.dll does not contain SciterAPI entry point",
+                "ogler initialization error", MB_ICONERROR | MB_OK);
             return false;
           }
 
@@ -127,8 +138,8 @@ extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry{
               SCITER_VERSION_1 != api->SciterVersion(1) ||
               SCITER_VERSION_2 != api->SciterVersion(2) ||
               SCITER_VERSION_3 != api->SciterVersion(3)) {
-            MessageBox(NULL, TEXT("Sciter version mismatch"),
-                       TEXT("ogler initialization error"), MB_OK);
+            ogler::msgbox = DetachedMessageBox(
+                "Sciter version mismatch", "ogler initialization error", MB_OK);
             return false;
           }
 
@@ -143,7 +154,7 @@ extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry{
           ogler::shared_vulkan = nullptr;
           ogler::sciter_module = nullptr;
           ogler::scintilla_factory = nullptr;
-          _SAPI(nullptr);
+          ogler::msgbox.join();
         },
     .get_factory = &clap::plugin_factory<ogler_plugin>::getter,
 };
