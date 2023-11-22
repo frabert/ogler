@@ -36,7 +36,6 @@
 
 #include <sstream>
 #include <system_error>
-#include <thread>
 
 #include "module_handle.hpp"
 #include "sciter_scintilla.hpp"
@@ -56,7 +55,6 @@ static std::unique_ptr<SharedVulkan> shared_vulkan = nullptr;
 static std::unique_ptr<ogler::ScintillaEditorFactory> scintilla_factory =
     nullptr;
 static std::unique_ptr<ogler::ModuleHandle> sciter_module = nullptr;
-static std::thread msgbox{};
 
 SharedVulkan &Ogler::get_shared_vulkan() { return *shared_vulkan; }
 
@@ -77,17 +75,15 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hInst, DWORD dwReason,
   return true;
 }
 
+void MessageBoxSimpl(const std::string &text, const std::string &caption,
+                     UINT flags) {
+  auto win_text = OGLER_TO_WINSTR(text);
+  auto win_caption = OGLER_TO_WINSTR(caption);
+  MessageBox(nullptr, win_text.c_str(), win_caption.c_str(), flags);
+}
+
 using ogler_plugin = clap::plugin<ogler::Ogler, clap::state, clap::gui,
                                   clap::params, clap::audio_ports>;
-
-std::thread DetachedMessageBox(const std::string &text,
-                               const std::string &caption, UINT flags) {
-  return std::thread{[text, caption, flags]() {
-    auto win_text = OGLER_TO_WINSTR(text);
-    auto win_caption = OGLER_TO_WINSTR(caption);
-    MessageBox(nullptr, win_text.c_str(), win_caption.c_str(), flags);
-  }};
-}
 
 extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry{
     .clap_version = CLAP_VERSION,
@@ -101,35 +97,32 @@ extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry{
             errmsg << "ogler could not initialize the Vulkan context:\n\n"
                    << err.what();
 
-            ogler::msgbox =
-                DetachedMessageBox(errmsg.str(), "ogler initialization error",
-                                   MB_ICONERROR | MB_OK);
+            MessageBoxSimpl(errmsg.str(), "ogler initialization error",
+                            MB_ICONERROR | MB_OK);
             return false;
           }
 
           std::filesystem::path plugin_path{plugin_path_str};
           try {
             ogler::sciter_module = std::make_unique<ogler::ModuleHandle>(
-                plugin_path.parent_path() / "sciter.dll");
+                plugin_path.parent_path() / "sciter.ext");
           } catch (std::system_error &err) {
             std::stringstream errmsg;
             errmsg << "ogler could not load the Sciter module:\n\n"
                    << err.what();
             auto msg = OGLER_TO_WINSTR(errmsg.str());
 
-            ogler::msgbox =
-                DetachedMessageBox(errmsg.str(), "ogler initialization error",
-                                   MB_ICONERROR | MB_OK);
+            MessageBoxSimpl(errmsg.str(), "ogler initialization error",
+                            MB_ICONERROR | MB_OK);
             return false;
           }
 
           auto sciterAPI = reinterpret_cast<SciterAPI_ptr>(
               ogler::sciter_module->get_proc_addr("SciterAPI"));
           if (!sciterAPI) {
-            ogler::msgbox = DetachedMessageBox(
-                "ogler could not load the Sciter module:\n\n"
-                "sciter.dll does not contain SciterAPI entry point",
-                "ogler initialization error", MB_ICONERROR | MB_OK);
+            MessageBoxSimpl("ogler could not load the Sciter module:\n\n"
+                            "sciter.ext does not contain SciterAPI entry point",
+                            "ogler initialization error", MB_ICONERROR | MB_OK);
             return false;
           }
 
@@ -138,10 +131,11 @@ extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry{
               SCITER_VERSION_1 != api->SciterVersion(1) ||
               SCITER_VERSION_2 != api->SciterVersion(2) ||
               SCITER_VERSION_3 != api->SciterVersion(3)) {
-            ogler::msgbox = DetachedMessageBox(
-                "Sciter version mismatch", "ogler initialization error", MB_OK);
+            MessageBoxSimpl("Sciter version mismatch",
+                            "ogler initialization error", MB_OK);
             return false;
           }
+          _SAPI(api);
 
           ogler::scintilla_factory =
               std::make_unique<ogler::ScintillaEditorFactory>(
@@ -154,7 +148,6 @@ extern "C" CLAP_EXPORT const clap_plugin_entry_t clap_entry{
           ogler::shared_vulkan = nullptr;
           ogler::sciter_module = nullptr;
           ogler::scintilla_factory = nullptr;
-          ogler::msgbox.join();
         },
     .get_factory = &clap::plugin_factory<ogler_plugin>::getter,
 };

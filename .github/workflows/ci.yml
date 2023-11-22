@@ -45,7 +45,7 @@ jobs:
         run: |
           jq -r $env:JQ_CMD $env:VCPKG_INSTALLATION_ROOT/ports/sciter-js/vcpkg.json | Out-File -FilePath $env:GITHUB_OUTPUT -Append
       - name: Download Sciter
-        run: curl -o build/sciter.dll https://gitlab.com/sciter-engine/sciter-js-sdk/-/blob/${{ steps.sciter-version.outputs.version }}/bin/windows/x64/sciter.dll
+        run: curl -o build/sciter.dll https://gitlab.com/sciter-engine/sciter-js-sdk/-/raw/${{ steps.sciter-version.outputs.version }}/bin/windows/x64/sciter.dll
       - name: Package
         working-directory: build
         run: |
